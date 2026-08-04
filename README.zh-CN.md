@@ -1,8 +1,36 @@
 [English](README.md) | **简体中文**
 
-# Pi Kanban
+# pi-kanban0
 
-Pi Kanban 是一个给 [Pi](https://pi.dev/) 用的项目内 Kanban：纯键盘 TUI、agent 可操作、Markdown 本地存储。不启动服务，不建数据库，也不要求安装 Obsidian。
+pi-kanban0 是一个给 [Pi](https://pi.dev/) 用的项目内 Kanban：纯键盘 TUI、agent 可操作、Markdown 本地存储。不启动服务，不建数据库，也不要求安装 Obsidian。
+
+![pi-kanban0 展示一个包含五列的项目级看板](docs/images/pi-kanban0-board.png)
+
+## 安装与开发
+
+要求 Pi `0.83.0+` 和 Node.js `22.19.0+`。
+
+从 npm 安装：
+
+```powershell
+pi install npm:pi-kanban0
+```
+
+卸载：
+
+```powershell
+pi remove npm:pi-kanban0
+```
+
+开发运行：
+
+```powershell
+npm install
+npm run check
+pi -e .\src\index.ts
+```
+
+本地开发包可使用 `pi install <本仓库路径>`。
 
 ## Pi 原生工作流
 
@@ -117,28 +145,6 @@ agent 和 TUI 使用相同的作用域解析：优先项目板，其次全局板
 
 兼容格式很简单：列是顶层二级标题（`## Column`），卡片是顶层 Markdown task（`- [ ] title` 或 `- [x] title`）。多行正文与 `@{time}`、`#label` 元数据都按 Markdown task 缩进。无法识别的 YAML、代码块或其他内容会作为原始块保留，因此可以迁移常见的 Obsidian Kanban 文件，但扩展本身不依赖 Obsidian 或任何特定旧文件路径。
 
-## 安装与开发
+## 致谢
 
-要求 Pi `0.83.0+` 和 Node.js `22.19.0+`。
-
-开发运行：
-
-```powershell
-npm install
-npm run check
-pi -e .\src\index.ts
-```
-
-从 npm 安装：
-
-```powershell
-pi install npm:pi-kanban0
-```
-
-卸载：
-
-```powershell
-pi remove npm:pi-kanban0
-```
-
-本地开发包可使用 `pi install <本仓库路径>`。
+感谢 [LINUX DO](https://linux.do/) 社区。
