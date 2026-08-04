@@ -1,8 +1,10 @@
 [English](README.md) | **简体中文**
 
-# Pi Kanban
+# pi-kanban0
 
-Pi Kanban 是一个给 [Pi](https://pi.dev/) 用的项目内 Kanban：纯键盘 TUI、agent 可操作、Markdown 本地存储。不启动服务，不建数据库，也不要求安装 Obsidian。
+pi-kanban0 是一个给 [Pi](https://pi.dev/) 用的项目内 Kanban：纯键盘 TUI、agent 可操作、Markdown 本地存储。不启动服务，不建数据库，也不要求安装 Obsidian。
+
+![pi-kanban0 展示一个包含五列的项目级看板](docs/images/pi-kanban0-board.png)
 
 ## Pi 原生工作流
 

@@ -1,8 +1,10 @@
 **English** | [简体中文](README.zh-CN.md)
 
-# Pi Kanban
+# pi-kanban0
 
-Pi Kanban is a project-aware Kanban board for [Pi](https://pi.dev/): a keyboard-only TUI that agents can operate, with all data stored locally in Markdown. It starts no service, creates no database, and does not require Obsidian.
+pi-kanban0 is a project-aware Kanban board for [Pi](https://pi.dev/): a keyboard-only TUI that agents can operate, with all data stored locally in Markdown. It starts no service, creates no database, and does not require Obsidian.
+
+![pi-kanban0 showing a project-local board with five columns](docs/images/pi-kanban0-board.png)
 
 ## Native Pi workflow
 
