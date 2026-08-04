@@ -141,4 +141,4 @@ Uninstall:
 pi remove npm:pi-kanban0
 ```
 
-For local package development, use `pi install <path-to-this-repository>`. Maintainers can find the automated release process in [RELEASING.md](RELEASING.md).
+For local package development, use `pi install <path-to-this-repository>`.

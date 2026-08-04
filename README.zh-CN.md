@@ -141,4 +141,4 @@ pi install npm:pi-kanban0
 pi remove npm:pi-kanban0
 ```
 
-本地开发包可使用 `pi install <本仓库路径>`。维护者可在 [RELEASING.zh-CN.md](RELEASING.zh-CN.md) 查看自动发布流程。
+本地开发包可使用 `pi install <本仓库路径>`。
