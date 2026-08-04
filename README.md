@@ -119,7 +119,7 @@ The compatible format is intentionally simple: columns are top-level level-two h
 
 ## Installation and development
 
-Requires Pi `0.83.0+` and Node.js.
+Requires Pi `0.83.0+` and Node.js `22.19.0+`.
 
 Run from source:
 
@@ -129,14 +129,16 @@ npm run check
 pi -e .\src\index.ts
 ```
 
-Install as a local Pi package:
+Install from npm:
 
 ```powershell
-pi install E:\github\pi-kanban
+pi install npm:pi-kanban0
 ```
 
 Uninstall:
 
 ```powershell
-pi remove E:\github\pi-kanban
+pi remove npm:pi-kanban0
 ```
+
+For local package development, use `pi install <path-to-this-repository>`. Maintainers can find the automated release process in [RELEASING.md](RELEASING.md).

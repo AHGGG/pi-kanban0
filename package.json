@@ -4,6 +4,20 @@
   "description": "A zero-service, local-first Kanban board and agent tool for Pi",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AHGGG/pi-kanban0.git"
+  },
+  "homepage": "https://github.com/AHGGG/pi-kanban0#readme",
+  "bugs": {
+    "url": "https://github.com/AHGGG/pi-kanban0/issues"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "keywords": [
     "pi-package",
     "pi",
@@ -32,6 +46,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "check": "npm run typecheck && npm test",
+    "prepublishOnly": "npm run check",
     "verify:board": "tsx scripts/verify-board.ts"
   },
   "devDependencies": {

@@ -119,7 +119,7 @@ agent 和 TUI 使用相同的作用域解析：优先项目板，其次全局板
 
 ## 安装与开发
 
-要求 Pi `0.83.0+` 和 Node.js。
+要求 Pi `0.83.0+` 和 Node.js `22.19.0+`。
 
 开发运行：
 
@@ -129,14 +129,16 @@ npm run check
 pi -e .\src\index.ts
 ```
 
-安装为本地 Pi 包：
+从 npm 安装：
 
 ```powershell
-pi install E:\github\pi-kanban
+pi install npm:pi-kanban0
 ```
 
 卸载：
 
 ```powershell
-pi remove E:\github\pi-kanban
+pi remove npm:pi-kanban0
 ```
+
+本地开发包可使用 `pi install <本仓库路径>`。维护者可在 [RELEASING.zh-CN.md](RELEASING.zh-CN.md) 查看自动发布流程。
