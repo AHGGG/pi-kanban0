@@ -1,8 +1,8 @@
 **English** | [简体中文](README.zh-CN.md)
 
-# pi-kanban
+# Pi Kanban
 
-A project-aware Kanban board for [Pi](https://pi.dev/): a keyboard-only TUI that agents can operate, with all data stored locally in Markdown. It starts no service, creates no database, and does not require Obsidian.
+Pi Kanban is a project-aware Kanban board for [Pi](https://pi.dev/): a keyboard-only TUI that agents can operate, with all data stored locally in Markdown. It starts no service, creates no database, and does not require Obsidian.
 
 ## Native Pi workflow
 
@@ -17,12 +17,12 @@ The extension opens a board according to these rules:
 1. If the current project already has `.pi/kanban.md`, open the project board immediately.
 2. If the project has no board, show a keyboard-only scope menu:
    - Create a project board at `<project>/.pi/kanban.md`.
-   - Create or open the global board in `pi-kanban/kanban.md` under Pi's home directory.
+   - Create or open the global board in `pi-kanban0/kanban.md` under Pi's home directory.
 
 Pi's default home directory is `~/.pi/agent`, so the default global board path is:
 
 ```text
-~/.pi/agent/pi-kanban/kanban.md
+~/.pi/agent/pi-kanban0/kanban.md
 ```
 
 You can skip the scope menu explicitly:
@@ -32,7 +32,7 @@ You can skip the scope menu explicitly:
 /kanban global
 ```
 
-A new board starts with five columns: `Inbox → Todo → In Progress → Review → Done`. Project boards are useful for work tied to one repository and can either be committed to Git or added to `.gitignore`. The global board is suited to personal work that spans projects. Both live outside the extension's installation directory, so extension updates never touch board data. The panel title shows either `.pi/kanban.md` or `pi-kanban/kanban.md`, making the active scope clear.
+A new board starts with five columns: `Inbox → Todo → In Progress → Review → Done`. Project boards are useful for work tied to one repository and can either be committed to Git or added to `.gitignore`. The global board is suited to personal work that spans projects. Both live outside the extension's installation directory, so extension updates never touch board data. The panel title shows either `.pi/kanban.md` or `pi-kanban0/kanban.md`, making the active scope clear.
 
 In addition to the TUI, the extension registers a `kanban_board` tool. You can ask Pi to:
 
@@ -139,5 +139,3 @@ Uninstall:
 ```powershell
 pi remove E:\github\pi-kanban
 ```
-
-The Pi APIs, official examples, community TUIs, and design trade-offs researched before implementation are documented in [docs/design-notes.md](docs/design-notes.md).

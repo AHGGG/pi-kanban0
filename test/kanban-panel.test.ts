@@ -24,7 +24,7 @@ const theme = {
 } as unknown as Theme;
 
 function fixtureStore(): BoardStore {
-  const directory = mkdtempSync(join(tmpdir(), "pi-kanban-panel-"));
+  const directory = mkdtempSync(join(tmpdir(), "pi-kanban0-panel-"));
   createdDirectories.push(directory);
   const path = join(directory, "board.md");
   const source = [

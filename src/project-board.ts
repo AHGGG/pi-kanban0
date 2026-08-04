@@ -4,7 +4,7 @@ import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { parseKanbanMarkdown } from "./markdown-board.js";
 
 export const PROJECT_BOARD_RELATIVE_PATH = join(".pi", "kanban.md");
-export const GLOBAL_BOARD_RELATIVE_PATH = join("pi-kanban", "kanban.md");
+export const GLOBAL_BOARD_RELATIVE_PATH = join("pi-kanban0", "kanban.md");
 
 export type BoardScope = "project" | "global";
 
@@ -100,7 +100,7 @@ export function importScopedBoard(
   const targetPath = scope === "project" ? projectBoardPath(cwd) : globalBoardPath(agentDir);
   const created = !existsSync(targetPath);
   mkdirSync(dirname(targetPath), { recursive: true });
-  const tempPath = join(dirname(targetPath), `.pi-kanban-import-${process.pid}-${Date.now()}.tmp`);
+  const tempPath = join(dirname(targetPath), `.pi-kanban0-import-${process.pid}-${Date.now()}.tmp`);
   try {
     writeFileSync(tempPath, source, "utf8");
     renameSync(tempPath, targetPath);

@@ -1,7 +1,7 @@
 {
-  "name": "pi-kanban",
+  "name": "pi-kanban0",
   "version": "0.1.0",
-  "description": "A local project/global, keyboard-first Kanban TUI and agent tool for Pi",
+  "description": "A zero-service, local-first Kanban board and agent tool for Pi",
   "type": "module",
   "license": "MIT",
   "keywords": [
@@ -14,7 +14,6 @@
   ],
   "files": [
     "src",
-    "docs",
     "README.md",
     "README.zh-CN.md",
     "LICENSE"

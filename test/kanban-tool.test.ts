@@ -11,7 +11,7 @@ import { ensureProjectBoard } from "../src/project-board.js";
 const createdDirectories: string[] = [];
 
 function projectStore(): BoardStore {
-  const cwd = mkdtempSync(join(tmpdir(), "pi-kanban-tool-"));
+  const cwd = mkdtempSync(join(tmpdir(), "pi-kanban0-tool-"));
   createdDirectories.push(cwd);
   return new BoardStore(ensureProjectBoard(cwd).path);
 }

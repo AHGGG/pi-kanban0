@@ -15,7 +15,7 @@ import {
 const createdDirectories: string[] = [];
 
 function temporaryProject(): string {
-  const path = mkdtempSync(join(tmpdir(), "pi-kanban-project-"));
+  const path = mkdtempSync(join(tmpdir(), "pi-kanban0-project-"));
   createdDirectories.push(path);
   return path;
 }
@@ -45,7 +45,7 @@ describe("project-local board", () => {
     const location = ensureGlobalBoard(agentDir);
 
     expect(location).toEqual({ path: globalBoardPath(agentDir), created: true });
-    expect(location.path).toBe(join(agentDir, "pi-kanban", "kanban.md"));
+    expect(location.path).toBe(join(agentDir, "pi-kanban0", "kanban.md"));
     expect(readFileSync(location.path, "utf8")).toBe(DEFAULT_BOARD_MARKDOWN);
   });
 

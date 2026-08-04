@@ -1,8 +1,8 @@
 [English](README.md) | **简体中文**
 
-# pi-kanban
+# Pi Kanban
 
-一个给 [Pi](https://pi.dev/) 用的项目内 Kanban：纯键盘 TUI、agent 可操作、Markdown 本地存储。不启动服务，不建数据库，也不要求安装 Obsidian。
+Pi Kanban 是一个给 [Pi](https://pi.dev/) 用的项目内 Kanban：纯键盘 TUI、agent 可操作、Markdown 本地存储。不启动服务，不建数据库，也不要求安装 Obsidian。
 
 ## Pi 原生工作流
 
@@ -17,12 +17,12 @@
 1. 当前项目已有 `.pi/kanban.md`：直接打开项目板。
 2. 当前项目没有看板：弹出纯键盘选择菜单。
    - 创建项目级看板：`<project>/.pi/kanban.md`
-   - 创建或打开全局看板：Pi 用户目录下的 `pi-kanban/kanban.md`
+   - 创建或打开全局看板：Pi 用户目录下的 `pi-kanban0/kanban.md`
 
 Pi 的默认用户目录是 `~/.pi/agent`，因此默认全局路径为：
 
 ```text
-~/.pi/agent/pi-kanban/kanban.md
+~/.pi/agent/pi-kanban0/kanban.md
 ```
 
 可以显式跳过菜单：
@@ -32,7 +32,7 @@ Pi 的默认用户目录是 `~/.pi/agent`，因此默认全局路径为：
 /kanban global
 ```
 
-默认只有五列：`Inbox → Todo → In Progress → Review → Done`。项目板适合跟随单个代码库，可以提交到 Git 或加入 `.gitignore`；全局板适合跨项目的个人工作流。两者都位于扩展安装目录之外，因此扩展更新不会触碰用户数据。面板标题会显示 `.pi/kanban.md` 或 `pi-kanban/kanban.md`，避免混淆当前作用域。
+默认只有五列：`Inbox → Todo → In Progress → Review → Done`。项目板适合跟随单个代码库，可以提交到 Git 或加入 `.gitignore`；全局板适合跨项目的个人工作流。两者都位于扩展安装目录之外，因此扩展更新不会触碰用户数据。面板标题会显示 `.pi/kanban.md` 或 `pi-kanban0/kanban.md`，避免混淆当前作用域。
 
 除了 TUI，扩展还注册了 `kanban_board` 工具。用户可以直接让 Pi：
 
@@ -139,5 +139,3 @@ pi install E:\github\pi-kanban
 ```powershell
 pi remove E:\github\pi-kanban
 ```
-
-实现前调研的 Pi API、官方示例、社区 TUI，以及这些设计取舍，记录在 [docs/design-notes.md](docs/design-notes.md)。

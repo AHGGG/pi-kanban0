@@ -14,7 +14,7 @@ import {
 const createdDirectories: string[] = [];
 
 function temporaryRoots(): { cwd: string; agentDir: string } {
-  const root = mkdtempSync(join(tmpdir(), "pi-kanban-scope-"));
+  const root = mkdtempSync(join(tmpdir(), "pi-kanban0-scope-"));
   createdDirectories.push(root);
   return { cwd: join(root, "project"), agentDir: join(root, "agent") };
 }

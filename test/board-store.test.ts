@@ -9,7 +9,7 @@ import { serializeKanbanMarkdown, toggleCard } from "../src/markdown-board.js";
 const createdDirectories: string[] = [];
 
 function createBoard(source = "## TODO\n\n- [ ] Test\n"): string {
-  const directory = mkdtempSync(join(tmpdir(), "pi-kanban-test-"));
+  const directory = mkdtempSync(join(tmpdir(), "pi-kanban0-test-"));
   createdDirectories.push(directory);
   const path = join(directory, "board.md");
   writeFileSync(path, source, "utf8");

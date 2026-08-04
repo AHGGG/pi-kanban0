@@ -50,7 +50,7 @@ export class BoardStore {
   }
 
   private writeAtomically(source: string): void {
-    const tempPath = join(dirname(this.path), `.pi-kanban-${process.pid}-${Date.now()}.tmp`);
+    const tempPath = join(dirname(this.path), `.pi-kanban0-${process.pid}-${Date.now()}.tmp`);
     try {
       writeFileSync(tempPath, source, "utf8");
       renameSync(tempPath, this.path);
