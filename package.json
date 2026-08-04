@@ -1,0 +1,47 @@
+{
+  "name": "pi-kanban",
+  "version": "0.1.0",
+  "description": "A local project/global, keyboard-first Kanban TUI and agent tool for Pi",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-extension",
+    "kanban",
+    "markdown",
+    "tui"
+  ],
+  "files": [
+    "src",
+    "docs",
+    "README.md",
+    "README.zh-CN.md",
+    "LICENSE"
+  ],
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": ">=0.83.0",
+    "@earendil-works/pi-coding-agent": ">=0.83.0",
+    "@earendil-works/pi-tui": ">=0.83.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm test",
+    "verify:board": "tsx scripts/verify-board.ts"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-ai": "0.83.0",
+    "@earendil-works/pi-coding-agent": "0.83.0",
+    "@earendil-works/pi-tui": "0.83.0",
+    "@types/node": "^25.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
+  }
+}
