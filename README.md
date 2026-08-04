@@ -6,6 +6,32 @@ pi-kanban0 is a project-aware Kanban board for [Pi](https://pi.dev/): a keyboard
 
 ![pi-kanban0 showing a project-local board with five columns](docs/images/pi-kanban0-board.png)
 
+## Installation and development
+
+Requires Pi `0.83.0+` and Node.js `22.19.0+`.
+
+Install from npm:
+
+```powershell
+pi install npm:pi-kanban0
+```
+
+Uninstall:
+
+```powershell
+pi remove npm:pi-kanban0
+```
+
+Run from source:
+
+```powershell
+npm install
+npm run check
+pi -e .\src\index.ts
+```
+
+For local package development, use `pi install <path-to-this-repository>`.
+
 ## Native Pi workflow
 
 Run this command from any project:
@@ -119,28 +145,6 @@ The extension validates the source without changing it. An existing project boar
 
 The compatible format is intentionally simple: columns are top-level level-two headings (`## Column`), and cards are top-level Markdown tasks (`- [ ] title` or `- [x] title`). Multiline bodies and `@{time}` / `#label` metadata are indented under the Markdown task. Unrecognized YAML, code blocks, and other content are preserved as raw blocks. This supports migration from common Obsidian Kanban files, while the extension itself depends on neither Obsidian nor any legacy file path.
 
-## Installation and development
+## Acknowledgements
 
-Requires Pi `0.83.0+` and Node.js `22.19.0+`.
-
-Run from source:
-
-```powershell
-npm install
-npm run check
-pi -e .\src\index.ts
-```
-
-Install from npm:
-
-```powershell
-pi install npm:pi-kanban0
-```
-
-Uninstall:
-
-```powershell
-pi remove npm:pi-kanban0
-```
-
-For local package development, use `pi install <path-to-this-repository>`.
+Thanks to the [LINUX DO](https://linux.do/) community.
