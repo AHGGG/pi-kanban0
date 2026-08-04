@@ -106,13 +106,13 @@ The main workflow uses the arrow keys, Space, Enter, and a small set of familiar
 
 ## One-time migration from existing Markdown
 
-An old board is only a migration source, not a runtime dependency. To copy an existing Markdown board into the current Pi project, run:
+An old board is only a migration source, not a runtime dependency. To import an existing Markdown board, run:
 
 ```text
 /kanban import "D:\path\to\legacy-board.md"
 ```
 
-The extension validates the source and copies it to `.pi/kanban.md` in the current project without changing the source file. If a project board already exists, Pi asks for confirmation first. After import, the project file becomes the source of truth and `/kanban` is all you need. To use a global board instead, create it with `/kanban global`, then add cards from Pi.
+The extension validates the source without changing it. An existing project board is the import target; if the project has none, an existing global board is used. When neither exists, Pi shows a keyboard menu to choose a project or global destination, and `Esc` cancels. Replacing an existing target always requires confirmation. After import, the selected local file becomes the source of truth and `/kanban` is all you need.
 
 The compatible format is intentionally simple: columns are top-level level-two headings (`## Column`), and cards are top-level Markdown tasks (`- [ ] title` or `- [x] title`). Multiline bodies and `@{time}` / `#label` metadata are indented under the Markdown task. Unrecognized YAML, code blocks, and other content are preserved as raw blocks. This supports migration from common Obsidian Kanban files, while the extension itself depends on neither Obsidian nor any legacy file path.
 

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { afterEach, describe, expect, it } from "vitest";
-import { chooseBoardLocation } from "../src/index.js";
+import { chooseBoardLocation, chooseImportLocation } from "../src/index.js";
 import {
   ensureGlobalBoard,
   ensureProjectBoard,
@@ -77,5 +77,50 @@ describe("board scope selection", () => {
     }), "global", agentDir);
 
     expect(location).toEqual({ path: globalBoardPath(agentDir), created: true, scope: "global" });
+  });
+});
+
+describe("import scope selection", () => {
+  it("asks for a destination when neither board exists", async () => {
+    const { cwd, agentDir } = temporaryRoots();
+    let offered: string[] = [];
+    const location = await chooseImportLocation(context(cwd, (options) => {
+      offered = options;
+      return options[1];
+    }), agentDir);
+
+    expect(offered).toHaveLength(2);
+    expect(offered[0]).toContain("Project board");
+    expect(offered[1]).toContain("Global board");
+    expect(location).toEqual({ path: globalBoardPath(agentDir), created: true, scope: "global" });
+  });
+
+  it("uses an existing project board without asking", async () => {
+    const { cwd, agentDir } = temporaryRoots();
+    ensureProjectBoard(cwd);
+
+    const location = await chooseImportLocation(context(cwd, () => {
+      throw new Error("import destination menu should not open");
+    }), agentDir);
+
+    expect(location).toEqual({ path: projectBoardPath(cwd), created: false, scope: "project" });
+  });
+
+  it("uses an existing global board when the project has none", async () => {
+    const { cwd, agentDir } = temporaryRoots();
+    ensureGlobalBoard(agentDir);
+
+    const location = await chooseImportLocation(context(cwd, () => {
+      throw new Error("import destination menu should not open");
+    }), agentDir);
+
+    expect(location).toEqual({ path: globalBoardPath(agentDir), created: false, scope: "global" });
+  });
+
+  it("cancels when the destination menu is dismissed", async () => {
+    const { cwd, agentDir } = temporaryRoots();
+    const location = await chooseImportLocation(context(cwd, () => undefined), agentDir);
+
+    expect(location).toBeUndefined();
   });
 });

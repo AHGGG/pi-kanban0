@@ -19,7 +19,7 @@ import {
   type BoardScope,
   ensureScopedBoard,
   globalBoardPath,
-  importProjectBoard,
+  importScopedBoard,
   projectBoardPath,
   resolveImportPath,
   type ScopedBoardLocation,
@@ -68,6 +68,29 @@ export async function chooseBoardLocation(
   const choice = await ctx.ui.select("Choose Kanban scope", [projectOption, globalOption]);
   if (!choice) return undefined;
   return ensureScopedBoard(choice === projectOption ? "project" : "global", ctx.cwd, agentDir);
+}
+
+export async function chooseImportLocation(
+  ctx: ExtensionCommandContext,
+  agentDir?: string,
+): Promise<ScopedBoardLocation | undefined> {
+  const projectPath = projectBoardPath(ctx.cwd);
+  if (usableFile(projectPath)) {
+    return { path: projectPath, created: false, scope: "project" };
+  }
+
+  const globalPath = globalBoardPath(agentDir);
+  if (usableFile(globalPath)) {
+    return { path: globalPath, created: false, scope: "global" };
+  }
+
+  const projectOption = "Project board · import into .pi/kanban.md here";
+  const globalOption = "Global board · import for all projects";
+  const choice = await ctx.ui.select("Choose import destination", [projectOption, globalOption]);
+  if (!choice) return undefined;
+  return choice === projectOption
+    ? { path: projectPath, created: true, scope: "project" }
+    : { path: globalPath, created: true, scope: "global" };
 }
 
 function mutationError(ctx: ExtensionCommandContext, state: PanelState, error: unknown): void {
@@ -349,16 +372,24 @@ export default function piKanban(pi: ExtensionAPI): void {
             return;
           }
 
-          const targetPath = projectBoardPath(ctx.cwd);
+          const target = await chooseImportLocation(ctx);
+          if (!target) return;
+          const targetPath = target.path;
           if (existsSync(targetPath) && sourcePath !== targetPath) {
+            const isProject = target.scope === "project";
             const confirmed = await ctx.ui.confirm(
-              "Replace project board?",
-              "The current .pi/kanban.md will be replaced. The imported source will not be changed.",
+              isProject ? "Replace project board?" : "Replace global board?",
+              isProject
+                ? "The current .pi/kanban.md will be replaced. The imported source will not be changed."
+                : "The global Kanban board will be replaced. The imported source will not be changed.",
             );
             if (!confirmed) return;
           }
-          boardPath = importProjectBoard(ctx.cwd, sourcePath);
-          ctx.ui.notify("Imported into this project’s .pi/kanban.md", "info");
+          boardPath = importScopedBoard(target.scope, ctx.cwd, sourcePath).path;
+          const label = target.scope === "project"
+            ? "Imported into this project’s .pi/kanban.md"
+            : "Imported into the global Kanban board";
+          ctx.ui.notify(label, "info");
         }
 
         const store = new BoardStore(boardPath);

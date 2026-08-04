@@ -85,14 +85,20 @@ export function findExistingBoard(
 }
 
 /**
- * Copy a legacy Markdown board into the current project after validating it.
+ * Copy a legacy Markdown board into the selected scope after validating it.
  * The source is never changed; the destination is replaced atomically.
  */
-export function importProjectBoard(cwd: string, sourcePath: string): string {
+export function importScopedBoard(
+  scope: BoardScope,
+  cwd: string,
+  sourcePath: string,
+  agentDir = getAgentDir(),
+): ScopedBoardLocation {
   const source = readFileSync(sourcePath, "utf8");
   parseKanbanMarkdown(source);
 
-  const targetPath = projectBoardPath(cwd);
+  const targetPath = scope === "project" ? projectBoardPath(cwd) : globalBoardPath(agentDir);
+  const created = !existsSync(targetPath);
   mkdirSync(dirname(targetPath), { recursive: true });
   const tempPath = join(dirname(targetPath), `.pi-kanban-import-${process.pid}-${Date.now()}.tmp`);
   try {
@@ -106,5 +112,5 @@ export function importProjectBoard(cwd: string, sourcePath: string): string {
     }
     throw error;
   }
-  return targetPath;
+  return { path: targetPath, created, scope };
 }

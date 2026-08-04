@@ -8,7 +8,7 @@ import {
   ensureProjectBoard,
   findExistingBoard,
   globalBoardPath,
-  importProjectBoard,
+  importScopedBoard,
   projectBoardPath,
 } from "../src/project-board.js";
 
@@ -66,10 +66,24 @@ describe("project-local board", () => {
     const source = "## Ideas\r\n\r\n- [ ] Preserve this\r\n";
     writeFileSync(sourcePath, source, "utf8");
 
-    const target = importProjectBoard(cwd, sourcePath);
+    const target = importScopedBoard("project", cwd, sourcePath);
 
     expect(readFileSync(sourcePath, "utf8")).toBe(source);
-    expect(readFileSync(target, "utf8")).toBe(source);
+    expect(target).toEqual({ path: projectBoardPath(cwd), created: true, scope: "project" });
+    expect(readFileSync(target.path, "utf8")).toBe(source);
+  });
+
+  it("imports a legacy board into the global scope", () => {
+    const cwd = temporaryProject();
+    const agentDir = join(cwd, "pi-agent-home");
+    const sourcePath = join(cwd, "legacy.md");
+    const source = "## Ideas\n\n- [ ] Shared card\n";
+    writeFileSync(sourcePath, source, "utf8");
+
+    const target = importScopedBoard("global", cwd, sourcePath, agentDir);
+
+    expect(target).toEqual({ path: globalBoardPath(agentDir), created: true, scope: "global" });
+    expect(readFileSync(target.path, "utf8")).toBe(source);
   });
 
   it("validates an import before replacing an existing project board", () => {
@@ -78,7 +92,7 @@ describe("project-local board", () => {
     const invalidPath = join(cwd, "notes.md");
     writeFileSync(invalidPath, "# Notes\n- [ ] Not a board\n", "utf8");
 
-    expect(() => importProjectBoard(cwd, invalidPath)).toThrow(/No Kanban columns/);
+    expect(() => importScopedBoard("project", cwd, invalidPath)).toThrow(/No Kanban columns/);
     expect(readFileSync(target, "utf8")).toBe(DEFAULT_BOARD_MARKDOWN);
   });
 });
