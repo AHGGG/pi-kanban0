@@ -15,9 +15,10 @@ Pi Kanban 是一个给 [Pi](https://pi.dev/) 用的项目内 Kanban：纯键盘 
 扩展按以下规则打开看板：
 
 1. 当前项目已有 `.pi/kanban.md`：直接打开项目板。
-2. 当前项目没有看板：弹出纯键盘选择菜单。
+2. 否则，如果已有全局板：直接打开全局板。
+3. 两种看板都不存在：弹出纯键盘选择菜单。
    - 创建项目级看板：`<project>/.pi/kanban.md`
-   - 创建或打开全局看板：Pi 用户目录下的 `pi-kanban0/kanban.md`
+   - 创建全局看板：Pi 用户目录下的 `pi-kanban0/kanban.md`
 
 Pi 的默认用户目录是 `~/.pi/agent`，因此默认全局路径为：
 

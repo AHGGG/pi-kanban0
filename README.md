@@ -15,9 +15,10 @@ Run this command from any project:
 The extension opens a board according to these rules:
 
 1. If the current project already has `.pi/kanban.md`, open the project board immediately.
-2. If the project has no board, show a keyboard-only scope menu:
+2. Otherwise, if a global board already exists, open it immediately.
+3. If neither board exists, show a keyboard-only scope menu:
    - Create a project board at `<project>/.pi/kanban.md`.
-   - Create or open the global board in `pi-kanban0/kanban.md` under Pi's home directory.
+   - Create a global board in `pi-kanban0/kanban.md` under Pi's home directory.
 
 Pi's default home directory is `~/.pi/agent`, so the default global board path is:
 

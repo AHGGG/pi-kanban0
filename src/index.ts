@@ -60,11 +60,12 @@ export async function chooseBoardLocation(
   }
 
   const globalPath = globalBoardPath(agentDir);
-  const hasGlobalBoard = usableFile(globalPath);
+  if (usableFile(globalPath)) {
+    return { path: globalPath, created: false, scope: "global" };
+  }
+
   const projectOption = "Project board · create .pi/kanban.md here";
-  const globalOption = hasGlobalBoard
-    ? "Global board · open the existing shared board"
-    : "Global board · create one for all projects";
+  const globalOption = "Global board · create one for all projects";
   const choice = await ctx.ui.select("Choose Kanban scope", [projectOption, globalOption]);
   if (!choice) return undefined;
   return ensureScopedBoard(choice === projectOption ? "project" : "global", ctx.cwd, agentDir);

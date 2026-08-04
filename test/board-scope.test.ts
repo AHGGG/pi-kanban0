@@ -49,12 +49,11 @@ describe("board scope selection", () => {
     expect(location).toEqual({ path: projectBoardPath(cwd), created: true, scope: "project" });
   });
 
-  it("offers an existing global board when the project has none", async () => {
+  it("opens an existing global board without showing the scope menu", async () => {
     const { cwd, agentDir } = temporaryRoots();
     ensureGlobalBoard(agentDir);
-    const location = await chooseBoardLocation(context(cwd, (options) => {
-      expect(options[1]).toContain("existing shared board");
-      return options[1];
+    const location = await chooseBoardLocation(context(cwd, () => {
+      throw new Error("scope menu should not open");
     }), undefined, agentDir);
 
     expect(location).toEqual({ path: globalBoardPath(agentDir), created: false, scope: "global" });
