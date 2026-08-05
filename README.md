@@ -77,11 +77,11 @@ The agent and TUI use the same scope resolution: prefer the project board, then 
 
 ## TUI features
 
-- An embedded multi-column panel with adaptive width and height. It stays compact for small boards, grows to about 34 rows for larger boards, and scrolls within each column.
+- An embedded multi-column panel with adaptive width and height. By default it stays compact for small boards, grows to about 34 rows for larger boards, and scrolls within each column; its height can also be fixed from 6 to 100 rows (subject to available terminal space).
 - Reserved space for Pi's input and status areas so the board title stays visible. Narrow terminals automatically show fewer columns at once.
 - Full action names in the footer, grouped by navigation, card, move, and board actions. When space is tight, a complete keyboard-help entry remains available instead of cryptic abbreviations.
 - Browse cards, view their full contents, add, edit, delete, complete, and reopen them.
-- Render up to two lines per card: the title on the first line, then the first body paragraph, time, and labels on the second. An ellipsis indicates additional content.
+- Render two lines per card by default: the title on the first line, then body text, time, and labels below it. The limit is configurable from 1 to 12 rows, and an ellipsis indicates additional content.
 - Press `y` in card details to copy the title and full body in one action; time and labels are omitted.
 - Press `@` on a selected card to set its time, or `#` to add a custom label. Both shortcuts also work in card details.
 - Reorder cards within a column or move them to an adjacent column.
@@ -111,9 +111,24 @@ The main workflow uses the arrow keys, Space, Enter, and a small set of familiar
 | Set card time | `@` |
 | Add a custom label | `#` |
 | Manage the current column | `c`, then use Pi's keyboard selection menu |
+| Display settings | `s` |
 | Search | `/`; press `Esc` while searching to clear it |
 | Reload from disk | `r` |
 | Help / close | `?` / `q` or `Esc` |
+
+## Display settings
+
+Press `s` on the board to set the total board height to `auto` or an exact value from 6 to 100 rows, and to set each card's maximum display height from 1 to 12 rows including its title. The terminal's available height always remains the final cap. Board height and card rows have no direct adjustment shortcuts; change both from this settings menu.
+
+To avoid stale terminal rows when a TUI grows or shrinks dynamically, display changes **do not resize the currently open panel**. They are saved immediately and take effect after closing the board with `q` / `Esc` and running `/kanban` again.
+
+Display choices persist across boards in:
+
+```text
+~/.pi/agent/pi-kanban0/settings.json
+```
+
+Choose **Reset display defaults** in the `s` menu to restore automatic board height and two rows per card.
 
 ## Time and label format
 

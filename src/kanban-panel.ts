@@ -19,10 +19,15 @@ import {
   reorderCard,
   toggleCard,
 } from "./markdown-board.js";
+import {
+  MIN_BOARD_HEIGHT,
+  normalizeKanbanLayout,
+  type KanbanLayoutSettings,
+} from "./kanban-settings.js";
 
 const MIN_COLUMN_WIDTH = 25;
 const MAX_VISIBLE_COLUMNS = 5;
-const PI_RESERVED_ROWS = 4;
+export const KANBAN_BOTTOM_RESERVED_ROWS = 4;
 const BOARD_BASE_ROWS = 4;
 const DETAIL_BASE_ROWS = 3;
 const MIN_BODY_ROWS = 3;
@@ -38,7 +43,8 @@ export type PanelAction =
   | { type: "time"; cardId: string }
   | { type: "label"; cardId: string }
   | { type: "column"; columnIndex: number }
-  | { type: "search"; query: string };
+  | { type: "search"; query: string }
+  | { type: "settings" };
 
 export type PanelView = "board" | "detail" | "help";
 
@@ -51,11 +57,16 @@ export interface PanelState {
   cardOffsets: number[];
   columnOffset: number;
   searchQuery: string;
+  /** Layout used by the currently open panel. It stays unchanged until the panel is reopened. */
+  layout: KanbanLayoutSettings;
+  /** Persisted layout that will be used the next time /kanban opens. */
+  pendingLayout: KanbanLayoutSettings;
   message?: string;
   messageKind?: "warning" | "error";
 }
 
-export function createPanelState(): PanelState {
+export function createPanelState(layout?: KanbanLayoutSettings): PanelState {
+  const activeLayout = normalizeKanbanLayout(layout);
   return {
     view: "board",
     helpReturnView: "board",
@@ -65,6 +76,8 @@ export function createPanelState(): PanelState {
     cardOffsets: [],
     columnOffset: 0,
     searchQuery: "",
+    layout: { ...activeLayout },
+    pendingLayout: { ...activeLayout },
   };
 }
 
@@ -101,6 +114,7 @@ function isShiftKey(
 
 export class KanbanPanel {
   private lastBodyRows = MIN_BODY_ROWS;
+  private lastSelectedColumnWidth = MIN_COLUMN_WIDTH;
   private detailNotice?: { text: string; kind: "success" | "error" };
 
   constructor(
@@ -172,6 +186,10 @@ export class KanbanPanel {
     }
     if (key === "/") {
       this.done({ type: "search", query: this.state.searchQuery });
+      return;
+    }
+    if (key === "s") {
+      this.done({ type: "settings" });
       return;
     }
 
@@ -346,11 +364,20 @@ export class KanbanPanel {
 
   private renderBoard(width: number): string[] {
     this.clampState();
+    const capacity = this.panelRowCapacity();
+    if (capacity < MIN_BOARD_HEIGHT) return this.renderCompactBoard(width, capacity);
     const lines: string[] = [];
     const document = this.store.document;
     const window = this.visibleColumnWindow(width);
+    const widths = this.columnWidths(width, window.length);
+    const selectedWindowIndex = window.indexOf(this.state.selectedColumn);
+    this.lastSelectedColumnWidth = widths[selectedWindowIndex] ?? MIN_COLUMN_WIDTH;
     const footerLines = this.boardFooterLines(width);
-    const bodyRows = this.boardBodyHeight(window, BOARD_BASE_ROWS + footerLines.length);
+    const bodyRows = this.boardBodyHeight(
+      window,
+      widths,
+      BOARD_BASE_ROWS + footerLines.length,
+    );
     this.lastBodyRows = bodyRows;
     const totalCards = cardCount(document);
     const visibleTotal = document.columns.reduce(
@@ -378,7 +405,6 @@ export class KanbanPanel {
           : "muted";
     lines.push(truncateToWidth(this.theme.fg(contextColor, context), width));
 
-    const widths = this.columnWidths(width, window.length);
     lines.push(this.joinCells(window.map((columnIndex, index) => {
       const column = document.columns[columnIndex];
       return this.renderColumnHeader(column, widths[index] ?? 1, columnIndex);
@@ -393,6 +419,28 @@ export class KanbanPanel {
 
     lines.push(this.theme.fg("borderMuted", "─".repeat(width)));
     lines.push(...footerLines.map((line) => truncateToWidth(this.theme.fg("dim", line), width)));
+    return lines;
+  }
+
+  private renderCompactBoard(width: number, height: number): string[] {
+    const document = this.store.document;
+    const column = document.columns[this.state.selectedColumn];
+    const cards = column ? this.visibleCards(column) : [];
+    const selected = Math.min(this.state.selectedCards[this.state.selectedColumn] ?? 0, cards.length - 1);
+    const card = cards[selected];
+    const filename = safeText(`${basename(dirname(this.store.path))}/${basename(this.store.path)}`);
+    const heading = `${this.theme.fg("accent", this.theme.bold("▣ PI KANBAN"))}  ${this.theme.fg("text", filename)}`;
+    const context = `${this.state.selectedColumn + 1}/${document.columns.length} ${safeText(column?.title ?? "")} · ${cards.length > 0 ? `${selected + 1}/${cards.length}` : "empty"}`;
+    const lines = [truncateToWidth(heading, width)];
+    const content = [
+      truncateToWidth(this.theme.fg("muted", context), width),
+      this.renderColumnHeader(column, width, this.state.selectedColumn),
+      ...(card ? this.renderCardRows(card, width, true).slice(0, 1) : []),
+    ];
+    lines.push(...content.slice(0, Math.max(0, height - 2)));
+    if (height > 1) lines.push(truncateToWidth(this.theme.fg("dim", "? help · q close"), width));
+    this.lastBodyRows = 1;
+    this.lastSelectedColumnWidth = width;
     return lines;
   }
 
@@ -423,7 +471,10 @@ export class KanbanPanel {
     offset = Math.max(0, Math.min(offset, cards.length - 1));
     while (
       offset < selection &&
-      cards.slice(offset, selection + 1).reduce((rows, card) => rows + this.cardRowCount(card), 0) > height
+      cards.slice(offset, selection + 1).reduce(
+        (rows, card) => rows + this.cardRowCount(card, width),
+        0,
+      ) > height
     ) {
       offset += 1;
     }
@@ -440,18 +491,35 @@ export class KanbanPanel {
     return rows;
   }
 
-  private cardPreview(card: KanbanCard): { text: string; hasMore: boolean } {
+  private cardPreviewLines(card: KanbanCard, width: number): string[] {
+    const maximum = Math.max(0, this.state.layout.cardRows - 1);
+    if (maximum === 0) return [];
+
     const metadata = readCardMetadata(card);
-    const body = metadata.bodyLines.map((line) => line.trim()).filter(Boolean);
-    const parts: string[] = [];
-    if (body[0]) parts.push(safeText(body[0]));
-    if (metadata.time) parts.push(`@ ${safeText(metadata.time)}`);
-    parts.push(...metadata.labels.map((label) => `#${safeText(label)}`));
-    return { text: parts.join(" · "), hasMore: body.length > 1 };
+    const body = metadata.bodyLines.map((line) => line.trim()).filter(Boolean).map(safeText);
+    const metadataParts: string[] = [];
+    if (metadata.time) metadataParts.push(`@ ${safeText(metadata.time)}`);
+    metadataParts.push(...metadata.labels.map((label) => `#${safeText(label)}`));
+
+    const sources = [...body];
+    const metadataText = metadataParts.join(" · ");
+    if (metadataText) {
+      if (sources[0]) sources[0] = `${sources[0]} · ${metadataText}`;
+      else sources.push(metadataText);
+    }
+
+    const previewWidth = Math.max(1, width - 4);
+    const wrapped = sources.flatMap((source) => wrapTextWithAnsi(source, previewWidth));
+    const visible = wrapped.slice(0, maximum);
+    if (wrapped.length > maximum && visible.length > 0) {
+      const last = visible.length - 1;
+      visible[last] = ellipsize(visible[last] ?? "", previewWidth, true);
+    }
+    return visible;
   }
 
-  private cardRowCount(card: KanbanCard): 1 | 2 {
-    return this.cardPreview(card).text ? 2 : 1;
+  private cardRowCount(card: KanbanCard, width: number): number {
+    return 1 + this.cardPreviewLines(card, width).length;
   }
 
   private renderCardRows(card: KanbanCard, width: number, selected: boolean): string[] {
@@ -467,12 +535,10 @@ export class KanbanPanel {
     } ${styledTitle}`, width);
 
     const output = [selected ? this.theme.bg("selectedBg", first) : first];
-    const preview = this.cardPreview(card);
-    if (!preview.text) return output;
-    const previewWidth = Math.max(1, width - 4);
-    const summary = ellipsize(preview.text, previewWidth, preview.hasMore);
-    const second = padAnsi(this.theme.fg("dim", `    ${summary}`), width);
-    output.push(selected ? this.theme.bg("selectedBg", second) : second);
+    for (const preview of this.cardPreviewLines(card, width)) {
+      const row = padAnsi(this.theme.fg("dim", `    ${preview}`), width);
+      output.push(selected ? this.theme.bg("selectedBg", row) : row);
+    }
     return output;
   }
 
@@ -482,6 +548,8 @@ export class KanbanPanel {
       this.state.view = "board";
       return this.renderBoard(width);
     }
+    const capacity = this.panelRowCapacity();
+    if (capacity < MIN_BOARD_HEIGHT) return this.renderCompactDetail(card, width, capacity);
     const column = this.store.document.columns[this.state.selectedColumn];
     const lines: string[] = [];
     const notice = this.detailNotice
@@ -523,6 +591,23 @@ export class KanbanPanel {
     return lines;
   }
 
+  private renderCompactDetail(card: KanbanCard, width: number, height: number): string[] {
+    const heading = truncateToWidth(
+      this.theme.fg("accent", this.theme.bold(card.checked ? "✓ CARD" : "○ CARD")),
+      width,
+    );
+    const bodyRows = Math.max(0, height - 2);
+    const body = cardToEditableText(card)
+      .split("\n")
+      .flatMap((line) => wrapTextWithAnsi(safeText(line), width))
+      .slice(0, bodyRows)
+      .map((line) => truncateToWidth(line, width));
+    const lines = [heading, ...body];
+    if (height > 1) lines.push(truncateToWidth(this.theme.fg("dim", "Enter/Esc return"), width));
+    this.lastBodyRows = Math.max(1, body.length);
+    return lines.slice(0, height);
+  }
+
   private renderHelp(width: number): string[] {
     const help = [
       this.theme.fg("accent", this.theme.bold("PI KANBAN · Keyboard")),
@@ -535,6 +620,7 @@ export class KanbanPanel {
       `${this.theme.fg("accent", "Copy")}       Enter · open card details    y · copy the open card`,
       `${this.theme.fg("accent", "Columns")}    c · add, rename, move, or delete the selected column`,
       `${this.theme.fg("accent", "Find")}       / · search all card text    Esc · clear active search`,
+      `${this.theme.fg("accent", "Display")}    s · settings (applies next time /kanban opens)`,
       `${this.theme.fg("accent", "Open")}       Enter · card details    r · reload file    q/Esc · close`,
       "",
       this.theme.fg("dim", "No mouse handling. Every action is available from the keyboard."),
@@ -552,7 +638,10 @@ export class KanbanPanel {
   }
 
   private panelRowCapacity(): number {
-    return Math.max(6, Math.min(MAX_PANEL_ROWS, this.tui.terminal.rows - PI_RESERVED_ROWS));
+    const configured = this.state.view === "board" ? this.state.layout.boardHeight : "auto";
+    const maximum = configured === "auto" ? MAX_PANEL_ROWS : configured;
+    const available = Math.max(1, this.tui.terminal.rows - KANBAN_BOTTOM_RESERVED_ROWS);
+    return Math.min(maximum, available);
   }
 
   private adaptiveBodyHeight(desiredRows: number, chromeRows: number): number {
@@ -567,6 +656,7 @@ export class KanbanPanel {
       "Cards: Space toggle completion · a add card · e edit card · d delete card",
       "Move: Shift+←/→ move card between columns · Shift+↑/↓ reorder card",
       "Metadata: @ set card time · # add custom label",
+      "Display: s settings (applies next time /kanban opens)",
       "Board: c manage column · / search cards · ? open keyboard help · q close board",
     ];
     return this.responsiveFooterLines(groups, width, BOARD_BASE_ROWS);
@@ -603,11 +693,18 @@ export class KanbanPanel {
     return visible;
   }
 
-  private boardBodyHeight(window: number[], chromeRows: number): number {
-    const desired = window.reduce((largest, columnIndex) => {
+  private boardBodyHeight(window: number[], widths: number[], chromeRows: number): number {
+    if (this.state.layout.boardHeight !== "auto") {
+      return Math.max(1, this.panelRowCapacity() - chromeRows);
+    }
+    const desired = window.reduce((largest, columnIndex, windowIndex) => {
       const column = this.store.document.columns[columnIndex];
+      const width = widths[windowIndex] ?? MIN_COLUMN_WIDTH;
       const rows = column
-        ? this.visibleCards(column).reduce((total, card) => total + this.cardRowCount(card), 0)
+        ? this.visibleCards(column).reduce(
+          (total, card) => total + this.cardRowCount(card, width),
+          0,
+        )
         : 0;
       return Math.max(largest, rows);
     }, 0);
@@ -681,7 +778,10 @@ export class KanbanPanel {
     const column = this.store.document.columns[this.state.selectedColumn];
     const cards = column ? this.visibleCards(column) : [];
     if (cards.length === 0) return 1;
-    const averageRows = cards.reduce((total, card) => total + this.cardRowCount(card), 0) / cards.length;
+    const averageRows = cards.reduce(
+      (total, card) => total + this.cardRowCount(card, this.lastSelectedColumnWidth),
+      0,
+    ) / cards.length;
     return Math.max(1, Math.floor(this.lastBodyRows / averageRows));
   }
 
