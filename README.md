@@ -82,7 +82,7 @@ The agent and TUI use the same scope resolution: prefer the project board, then 
 - Full action names in the footer, grouped by navigation, card, move, and board actions. When space is tight, a complete keyboard-help entry remains available instead of cryptic abbreviations.
 - Browse cards, view their full contents, add, edit, delete, complete, and reopen them.
 - Render up to two lines per card: the title on the first line, then the first body paragraph, time, and labels on the second. An ellipsis indicates additional content.
-- Press `y` in card details to copy the title, time, labels, and full body in one action.
+- Press `y` in card details to copy the title and full body in one action; time and labels are omitted.
 - Press `@` on a selected card to set its time, or `#` to add a custom label. Both shortcuts also work in card details.
 - Reorder cards within a column or move them to an adjacent column.
 - Press `c` to open one column menu for adding, renaming, moving, or deleting columns.
@@ -106,7 +106,7 @@ The main workflow uses the arrow keys, Space, Enter, and a small set of familiar
 | Move to adjacent column | `Shift+←` / `Shift+→`; fallback keys `[` / `]` |
 | Move up / down within column | `Shift+↑` / `Shift+↓`; fallback keys `K` / `J` |
 | View details | `Enter` |
-| Copy the complete card from details | `y` |
+| Copy the title and body from details | `y` |
 | Add / edit / delete a card | `a` / `e` / `d` |
 | Set card time | `@` |
 | Add a custom label | `#` |
