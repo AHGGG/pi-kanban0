@@ -12,6 +12,7 @@ import {
 import { cardCount, cardsIn, type KanbanCard, type KanbanColumn } from "./board-model.js";
 import { BoardConflictError, type BoardStore } from "./board-store.js";
 import {
+  cardToClipboardText,
   cardToEditableText,
   moveCard,
   readCardMetadata,
@@ -688,7 +689,7 @@ export class KanbanPanel {
     const card = this.currentCard();
     if (!card) return;
     this.detailNotice = undefined;
-    void this.copyText(cardToEditableText(card)).then(() => {
+    void this.copyText(cardToClipboardText(card)).then(() => {
       this.detailNotice = { text: "Copied card to clipboard", kind: "success" };
       this.tui.requestRender();
     }).catch((error: unknown) => {

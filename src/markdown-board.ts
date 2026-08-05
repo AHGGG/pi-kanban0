@@ -300,6 +300,13 @@ function metadataLine(value: string): { type: "time" | "label"; value: string } 
   return label ? { type: "label", value: label } : undefined;
 }
 
+export function cardToClipboardText(card: KanbanCard): string {
+  const [title = card.title, ...lines] = cardToEditableText(card).split("\n");
+  return [title, ...lines.filter((line) => !metadataLine(line))]
+    .join("\n")
+    .replace(/\n+$/, "");
+}
+
 export function readCardMetadata(card: KanbanCard): CardMetadata {
   const lines = cardToEditableText(card).split("\n");
   const metadata: CardMetadata = { labels: [], bodyLines: [] };

@@ -156,8 +156,13 @@ describe("KanbanPanel", () => {
     expect(panel.render(48)[0]).toContain("PI KANBAN");
   });
 
-  it("copies the open card with y and keeps the detail view open", async () => {
+  it("copies the open card without time or labels and keeps the detail view open", async () => {
     const store = fixtureStore();
+    const card = cardsIn(store.document.columns[0]!)[0]!;
+    store.mutate((document) => {
+      setCardTime(document, card.id, "2026-08-04 09:30");
+      addCardLabel(document, card.id, "urgent");
+    });
     let copied = "";
     let renders = 0;
     const tui = {
@@ -181,8 +186,14 @@ describe("KanbanPanel", () => {
     panel.handleInput("y");
     await Promise.resolve();
 
-    expect(copied).toContain("A very long first card title");
-    expect(copied).toContain("More details");
+    expect(copied).toBe([
+      "A very long first card title for narrow terminals",
+      "Details",
+      "More details",
+      "Third detail",
+    ].join("\n"));
+    expect(copied).not.toContain("2026-08-04 09:30");
+    expect(copied).not.toContain("urgent");
     expect(renders).toBe(1);
     expect(panel.render(80).join("\n")).toContain("Copied card to clipboard");
   });

@@ -4,6 +4,7 @@ import {
   addCard,
   addCardLabel,
   addColumn,
+  cardToClipboardText,
   cardToEditableText,
   deleteCard,
   deleteColumn,
@@ -150,6 +151,11 @@ describe("Kanban Markdown", () => {
       "@{2026-08-04 09:30}",
       "#urgent",
       "#{needs review}",
+      "A detail line",
+      "- nested item",
+    ].join("\n"));
+    expect(cardToClipboardText(card)).toBe([
+      "First card",
       "A detail line",
       "- nested item",
     ].join("\n"));
