@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.1 (2026-08-05)
+
+## What's Changed
+* ci: use GitHub-generated release notes by @AHGGG in https://github.com/AHGGG/pi-kanban0/pull/12
+
+
+**Full Changelog**: https://github.com/AHGGG/pi-kanban0/compare/v0.2.0...v0.2.1
+
 ## [0.2.0](https://github.com/AHGGG/pi-kanban0/compare/v0.1.1...v0.2.0) (2026-08-05)
 
 
