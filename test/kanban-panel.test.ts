@@ -6,7 +6,12 @@ import { type TUI, visibleWidth } from "@earendil-works/pi-tui";
 import { afterEach, describe, expect, it } from "vitest";
 import { cardsIn } from "../src/board-model.js";
 import { BoardStore } from "../src/board-store.js";
-import { addCard, addCardLabel, setCardTime } from "../src/markdown-board.js";
+import {
+  addCard,
+  addCardLabel,
+  setCardTime,
+  updateCardFromEditableText,
+} from "../src/markdown-board.js";
 import {
   createPanelState,
   KanbanPanel,
@@ -103,20 +108,53 @@ describe("KanbanPanel", () => {
     expect(footer).not.toContain("a/e/d");
   });
 
-  it("renders each card in at most two rows with a body preview and ellipsis", () => {
+  it("wraps card content across the row limit and ellipsizes only at the end", () => {
     const store = fixtureStore();
     const panel = new KanbanPanel(store, createPanelState(), fakeTui(40), theme, () => undefined);
 
     const lines = panel.render(50);
     const titleRow = lines.findIndex((line) => line.includes("A very long first"));
-    const previewRow = lines.findIndex((line) => line.includes("Details…"));
+    const continuationRow = lines.findIndex((line) => line.includes("terminals…"));
     const secondCardRow = lines.findIndex((line) => line.includes("Second"));
 
     expect(titleRow).toBeGreaterThan(0);
-    expect(previewRow).toBe(titleRow + 1);
-    expect(secondCardRow).toBe(previewRow + 1);
+    expect(lines[titleRow]).not.toContain("…");
+    expect(continuationRow).toBe(titleRow + 1);
+    expect(secondCardRow).toBe(continuationRow + 1);
+    expect(lines.join("\n")).not.toContain("Details");
     expect(lines.join("\n")).not.toContain("More details");
-    expect(lines.join("\n")).not.toContain("Third detail");
+  });
+
+  it("uses every configured row for wrapping before indicating overflow", () => {
+    const store = fixtureStore();
+    const card = cardsIn(store.document.columns[0]!)[0]!;
+    const title = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123";
+    store.mutate((document) => {
+      updateCardFromEditableText(document, card.id, title);
+    });
+    const state = createPanelState({ boardHeight: 20, cardRows: 3 });
+    const panel = new KanbanPanel(store, state, fakeTui(40), theme, () => undefined);
+
+    const fitting = panel.render(30);
+    const fittingTitleRow = fitting.findIndex((line) => line.includes("ABCDEFGHIJKLMNOPQRSTUVWXYZ"));
+    const fittingRows = fitting.slice(fittingTitleRow, fittingTitleRow + 3);
+
+    expect(fittingRows[1]).toContain("abcdefghijklmnopqrstuvwxyz");
+    expect(fittingRows[2]).toContain("123");
+    expect(fittingRows.join("\n")).not.toContain("…");
+
+    store.mutate((document) => {
+      updateCardFromEditableText(document, card.id, `${title}\nFourth line`);
+    });
+    const overflowing = panel.render(30);
+    const overflowingTitleRow = overflowing.findIndex((line) =>
+      line.includes("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+    );
+    const overflowingRows = overflowing.slice(overflowingTitleRow, overflowingTitleRow + 3);
+
+    expect(overflowingRows[1]).toContain("abcdefghijklmnopqrstuvwxyz");
+    expect(overflowingRows[2]).toContain("123…");
+    expect(overflowingRows.join("\n")).not.toContain("Fourth line");
   });
 
   it("uses the configured card row count and fixed board height", () => {
@@ -129,9 +167,10 @@ describe("KanbanPanel", () => {
     const secondCardRow = lines.findIndex((line) => line.includes("Second"));
 
     expect(lines).toHaveLength(20);
-    expect(lines[titleRow + 1]).toContain("Details");
-    expect(lines[titleRow + 2]).toContain("More details");
-    expect(lines[titleRow + 3]).toContain("Third detail");
+    expect(lines[titleRow + 1]).toContain("terminals");
+    expect(lines[titleRow + 2]).toContain("Details");
+    expect(lines[titleRow + 3]).toContain("More details…");
+    expect(lines.join("\n")).not.toContain("Third detail");
     expect(secondCardRow).toBe(titleRow + 4);
   });
 
@@ -152,8 +191,9 @@ describe("KanbanPanel", () => {
 
   it("includes @ time and # labels in the second item row when space permits", () => {
     const store = fixtureStore();
-    const card = cardsIn(store.document.columns[0]!)[0]!;
+    const card = cardsIn(store.document.columns[0]!)[1]!;
     store.mutate((document) => {
+      updateCardFromEditableText(document, card.id, "Second\nDetails");
       setCardTime(document, card.id, "2026-08-04 09:30");
       addCardLabel(document, card.id, "urgent");
     });
@@ -161,9 +201,7 @@ describe("KanbanPanel", () => {
 
     const output = panel.render(50).join("\n");
 
-    expect(output).toContain("Details");
-    expect(output).toContain("@ 2026-08-04 09:30");
-    expect(output).toContain("#urgent");
+    expect(output).toContain("Details · @ 2026-08-04 09:30 · #urgent");
   });
 
   it("caps a tall board and keeps its cards scrollable", () => {

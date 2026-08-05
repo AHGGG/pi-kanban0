@@ -491,9 +491,13 @@ export class KanbanPanel {
     return rows;
   }
 
-  private cardPreviewLines(card: KanbanCard, width: number): string[] {
-    const maximum = Math.max(0, this.state.layout.cardRows - 1);
-    if (maximum === 0) return [];
+  private cardDisplayLines(
+    card: KanbanCard,
+    width: number,
+  ): Array<{ text: string; kind: "title" | "body" }> {
+    const maximum = Math.max(1, this.state.layout.cardRows);
+    const contentWidth = Math.max(1, width - 4);
+    const title = safeText(card.title || "(untitled)");
 
     const metadata = readCardMetadata(card);
     const body = metadata.bodyLines.map((line) => line.trim()).filter(Boolean).map(safeText);
@@ -501,45 +505,51 @@ export class KanbanPanel {
     if (metadata.time) metadataParts.push(`@ ${safeText(metadata.time)}`);
     metadataParts.push(...metadata.labels.map((label) => `#${safeText(label)}`));
 
-    const sources = [...body];
+    const bodySources = [...body];
     const metadataText = metadataParts.join(" · ");
     if (metadataText) {
-      if (sources[0]) sources[0] = `${sources[0]} · ${metadataText}`;
-      else sources.push(metadataText);
+      if (bodySources[0]) bodySources[0] = `${bodySources[0]} · ${metadataText}`;
+      else bodySources.push(metadataText);
     }
 
-    const previewWidth = Math.max(1, width - 4);
-    const wrapped = sources.flatMap((source) => wrapTextWithAnsi(source, previewWidth));
+    const wrapped = [
+      ...wrapTextWithAnsi(title, contentWidth).map((text) => ({ text, kind: "title" as const })),
+      ...bodySources.flatMap((source) =>
+        wrapTextWithAnsi(source, contentWidth).map((text) => ({ text, kind: "body" as const }))
+      ),
+    ];
     const visible = wrapped.slice(0, maximum);
-    if (wrapped.length > maximum && visible.length > 0) {
-      const last = visible.length - 1;
-      visible[last] = ellipsize(visible[last] ?? "", previewWidth, true);
+    if (wrapped.length > maximum) {
+      const last = visible.at(-1);
+      if (last) last.text = ellipsize(last.text, contentWidth, true);
     }
     return visible;
   }
 
   private cardRowCount(card: KanbanCard, width: number): number {
-    return 1 + this.cardPreviewLines(card, width).length;
+    return this.cardDisplayLines(card, width).length;
   }
 
   private renderCardRows(card: KanbanCard, width: number, selected: boolean): string[] {
     const marker = card.checked ? "✓" : "○";
-    const titleWidth = Math.max(1, width - 4);
-    const title = ellipsize(safeText(card.title || "(untitled)"), titleWidth);
-    let styledTitle = card.checked
-      ? this.theme.fg("dim", this.theme.strikethrough(title))
-      : this.theme.fg("text", title);
-    if (selected) styledTitle = this.theme.fg("accent", this.theme.bold(title));
-    const first = padAnsi(`${selected ? this.theme.fg("accent", "›") : " "} ${
-      card.checked ? this.theme.fg("success", marker) : this.theme.fg("dim", marker)
-    } ${styledTitle}`, width);
+    return this.cardDisplayLines(card, width).map((line, index) => {
+      let styled = line.kind === "body"
+        ? this.theme.fg("dim", line.text)
+        : card.checked
+          ? this.theme.fg("dim", this.theme.strikethrough(line.text))
+          : this.theme.fg("text", line.text);
+      if (selected && line.kind === "title") {
+        styled = this.theme.fg("accent", this.theme.bold(line.text));
+      }
 
-    const output = [selected ? this.theme.bg("selectedBg", first) : first];
-    for (const preview of this.cardPreviewLines(card, width)) {
-      const row = padAnsi(this.theme.fg("dim", `    ${preview}`), width);
-      output.push(selected ? this.theme.bg("selectedBg", row) : row);
-    }
-    return output;
+      const prefix = index === 0
+        ? `${selected ? this.theme.fg("accent", "›") : " "} ${
+          card.checked ? this.theme.fg("success", marker) : this.theme.fg("dim", marker)
+        } `
+        : "    ";
+      const row = padAnsi(`${prefix}${styled}`, width);
+      return selected ? this.theme.bg("selectedBg", row) : row;
+    });
   }
 
   private renderDetail(width: number): string[] {
