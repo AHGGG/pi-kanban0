@@ -29,7 +29,7 @@ afterEach(() => {
 });
 
 describe("Kanban panel host", () => {
-  it("hosts the board in a top-anchored full-width overlay", async () => {
+  it("bottom-aligns the full-width board above Pi's input area", async () => {
     const directory = mkdtempSync(join(tmpdir(), "pi-kanban0-overlay-"));
     createdDirectories.push(directory);
     const path = join(directory, "board.md");
@@ -67,7 +67,7 @@ describe("Kanban panel host", () => {
     expect(customOptions).toEqual({
       overlay: true,
       overlayOptions: {
-        anchor: "top-center",
+        anchor: "bottom-center",
         margin: { bottom: KANBAN_BOTTOM_RESERVED_ROWS },
         width: "100%",
       },
