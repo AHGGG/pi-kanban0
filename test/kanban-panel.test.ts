@@ -108,6 +108,34 @@ describe("KanbanPanel", () => {
     expect(footer).not.toContain("a/e/d");
   });
 
+  it("uses the empty right side for a second footer column on wide terminals", () => {
+    const store = fixtureStore();
+    const panel = new KanbanPanel(store, createPanelState(), fakeTui(40), theme, () => undefined);
+
+    const wide = panel.render(180);
+    const divider = wide.lastIndexOf("─".repeat(180));
+    const footer = wide.slice(divider + 1);
+
+    expect(footer).toHaveLength(3);
+    expect(footer[0]).toContain("Navigate:");
+    expect(footer[0]).toContain("Metadata:");
+    expect(footer[1]).toContain("Cards:");
+    expect(footer[1]).toContain("Display:");
+    expect(footer[2]).toContain("Move:");
+    expect(footer[2]).toContain("Board:");
+    expect(footer.every((line) => visibleWidth(line) <= 180)).toBe(true);
+    expect(footer.join("\n")).not.toContain(" · ");
+    expect(footer[0]).toContain("switch columns  │  ↑/↓ select cards");
+    expect(footer[1]).toContain("a add card  │  e edit card");
+    expect(footer[2]).toContain("between columns  │  Shift+↑/↓ reorder card");
+
+    const regular = panel.render(120);
+    const regularDivider = regular.lastIndexOf("─".repeat(120));
+    const regularFooter = regular.slice(regularDivider + 1);
+    expect(regularFooter).toHaveLength(6);
+    expect(regularFooter[0]).not.toContain("Metadata:");
+  });
+
   it("wraps card content across the row limit and ellipsizes only at the end", () => {
     const store = fixtureStore();
     const panel = new KanbanPanel(store, createPanelState(), fakeTui(40), theme, () => undefined);

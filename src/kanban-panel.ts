@@ -34,6 +34,8 @@ const MIN_BODY_ROWS = 3;
 const MAX_BODY_ROWS = 24;
 const MAX_PANEL_ROWS = 34;
 const MAX_FOOTER_ROWS = 7;
+const FOOTER_COLUMN_GAP = 4;
+const FOOTER_ACTION_SEPARATOR = "  │  ";
 
 export type PanelAction =
   | { type: "close" }
@@ -438,7 +440,12 @@ export class KanbanPanel {
       ...(card ? this.renderCardRows(card, width, true).slice(0, 1) : []),
     ];
     lines.push(...content.slice(0, Math.max(0, height - 2)));
-    if (height > 1) lines.push(truncateToWidth(this.theme.fg("dim", "? help · q close"), width));
+    if (height > 1) {
+      lines.push(truncateToWidth(
+        this.theme.fg("dim", `? help${FOOTER_ACTION_SEPARATOR}q close`),
+        width,
+      ));
+    }
     this.lastBodyRows = 1;
     this.lastSelectedColumnWidth = width;
     return lines;
@@ -661,22 +668,46 @@ export class KanbanPanel {
   }
 
   private boardFooterLines(width: number): string[] {
+    const separator = FOOTER_ACTION_SEPARATOR;
     const groups = [
-      "Navigate: ←/→ switch columns · ↑/↓ select cards · Enter open card details",
-      "Cards: Space toggle completion · a add card · e edit card · d delete card",
-      "Move: Shift+←/→ move card between columns · Shift+↑/↓ reorder card",
-      "Metadata: @ set card time · # add custom label",
+      `Navigate: ←/→ switch columns${separator}↑/↓ select cards${separator}Enter open card details`,
+      `Cards: Space toggle completion${separator}a add card${separator}e edit card${separator}d delete card`,
+      `Move: Shift+←/→ move card between columns${separator}Shift+↑/↓ reorder card`,
+      `Metadata: @ set card time${separator}# add custom label`,
       "Display: s settings (applies next time /kanban opens)",
-      "Board: c manage column · / search cards · ? open keyboard help · q close board",
+      `Board: c manage column${separator}/ search cards${separator}? open keyboard help${separator}q close board`,
     ];
-    return this.responsiveFooterLines(groups, width, BOARD_BASE_ROWS);
+    const footerRows = this.twoColumnFooterLines(groups, width) ?? groups;
+    return this.responsiveFooterLines(footerRows, width, BOARD_BASE_ROWS);
+  }
+
+  private twoColumnFooterLines(groups: string[], width: number): string[] | undefined {
+    if (groups.length < 2 || width <= FOOTER_COLUMN_GAP + 1) return undefined;
+    const rowCount = Math.ceil(groups.length / 2);
+    const left = groups.slice(0, rowCount);
+    const right = groups.slice(rowCount);
+    if (right.length === 0) return undefined;
+
+    const usableWidth = width - FOOTER_COLUMN_GAP;
+    const leftWidth = Math.floor(usableWidth / 2);
+    const rightWidth = usableWidth - leftWidth;
+    const fits = left.every((line) => visibleWidth(line) <= leftWidth) &&
+      right.every((line) => visibleWidth(line) <= rightWidth);
+    if (!fits) return undefined;
+
+    const gap = " ".repeat(FOOTER_COLUMN_GAP);
+    return left.map((line, index) => {
+      const rightLine = right[index];
+      return rightLine === undefined ? line : `${padAnsi(line, leftWidth)}${gap}${rightLine}`;
+    });
   }
 
   private detailFooterLines(width: number): string[] {
+    const separator = FOOTER_ACTION_SEPARATOR;
     const groups = [
-      "↑/↓ scroll card · PageUp/PageDown scroll one page · Enter or Esc return to board",
-      "y copy card · Space toggle completion · e edit card · d delete card",
-      "@ set card time · # add custom label · ? open keyboard help · q close board",
+      `↑/↓ scroll card${separator}PageUp/PageDown scroll one page${separator}Enter or Esc return to board`,
+      `y copy card${separator}Space toggle completion${separator}e edit card${separator}d delete card`,
+      `@ set card time${separator}# add custom label${separator}? open keyboard help${separator}q close board`,
     ];
     return this.responsiveFooterLines(groups, width, DETAIL_BASE_ROWS);
   }
@@ -692,7 +723,7 @@ export class KanbanPanel {
     const visible = allLines.slice(0, maximum);
     if (allLines.length > maximum && visible.length > 0) {
       const fallbacks = [
-        "… ? open full keyboard help · q close board",
+        `… ? open full keyboard help${FOOTER_ACTION_SEPARATOR}q close board`,
         "? open keyboard help",
         "? keyboard help",
         "? help",

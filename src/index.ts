@@ -342,9 +342,9 @@ export async function runPanel(
       {
         overlay: true,
         overlayOptions: {
-          // Display settings are changed outside this component and only apply on the
-          // next /kanban open, so this overlay is never resized by the settings menu.
-          anchor: "top-center",
+          // Keep the adaptive panel flush with Pi's editor/status area. A top anchor
+          // exposes old transcript rows below the panel whenever its content shrinks.
+          anchor: "bottom-center",
           margin: { bottom: KANBAN_BOTTOM_RESERVED_ROWS },
           width: "100%",
         },
