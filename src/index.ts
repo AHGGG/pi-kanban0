@@ -14,7 +14,24 @@ import {
 import { addColumn, deleteColumn, moveColumn, renameColumn } from "./markdown-board.js";
 import { BoardConflictError, BoardStore } from "./board-store.js";
 import { registerKanbanTool } from "./kanban-tool.js";
-import { createPanelState, KanbanPanel, type PanelAction, type PanelState } from "./kanban-panel.js";
+import {
+  createPanelState,
+  KANBAN_BOTTOM_RESERVED_ROWS,
+  KanbanPanel,
+  type PanelAction,
+  type PanelState,
+} from "./kanban-panel.js";
+import {
+  defaultKanbanLayout,
+  loadKanbanLayout,
+  MAX_BOARD_HEIGHT,
+  MAX_CARD_ROWS,
+  MIN_BOARD_HEIGHT,
+  MIN_CARD_ROWS,
+  normalizeKanbanLayout,
+  saveKanbanLayout,
+  type KanbanLayoutSettings,
+} from "./kanban-settings.js";
 import {
   type BoardScope,
   ensureScopedBoard,
@@ -193,25 +210,153 @@ async function runColumnMenu(
   }
 }
 
-async function runPanel(
+function layoutHeightLabel(settings: KanbanLayoutSettings): string {
+  return settings.boardHeight === "auto" ? "Auto" : `${settings.boardHeight} rows`;
+}
+
+type LayoutSaver = (settings: KanbanLayoutSettings) => KanbanLayoutSettings;
+
+function applyLayoutSettings(
+  state: PanelState,
+  settings: KanbanLayoutSettings,
+  ctx: ExtensionCommandContext,
+  message: string,
+  saveLayout: LayoutSaver,
+): void {
+  const pendingLayout = normalizeKanbanLayout(settings);
+  try {
+    state.pendingLayout = saveLayout(pendingLayout);
+    state.message = `${message} · applies next time /kanban opens`;
+    state.messageKind = undefined;
+    ctx.ui.notify(`${message}. Close and reopen /kanban to apply.`, "info");
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    state.message = `Display settings were not saved: ${detail}`;
+    state.messageKind = "error";
+    ctx.ui.notify(state.message, "warning");
+  }
+}
+
+export async function runDisplaySettings(
+  state: PanelState,
+  ctx: ExtensionCommandContext,
+  saveLayout: LayoutSaver = saveKanbanLayout,
+): Promise<void> {
+  for (;;) {
+    const heightOption = `Board height · ${layoutHeightLabel(state.pendingLayout)}`;
+    const cardOption = `Card rows · ${state.pendingLayout.cardRows}`;
+    const resetOption = "Reset display defaults";
+    const backOption = "Back to board";
+    const choice = await ctx.ui.select("Kanban display settings · next open", [
+      heightOption,
+      cardOption,
+      resetOption,
+      backOption,
+    ]);
+    if (!choice || choice === backOption) return;
+
+    if (choice === heightOption) {
+      const value = await ctx.ui.input(
+        `Board height · ${layoutHeightLabel(state.pendingLayout)}`,
+        `Type auto or ${MIN_BOARD_HEIGHT}-${MAX_BOARD_HEIGHT} rows`,
+      );
+      if (value === undefined) continue;
+      const trimmed = value.trim().toLocaleLowerCase();
+      const parsed = Number(trimmed);
+      const boardHeight = trimmed === "auto"
+        ? "auto"
+        : Number.isInteger(parsed) && parsed >= MIN_BOARD_HEIGHT && parsed <= MAX_BOARD_HEIGHT
+          ? parsed
+          : undefined;
+      if (boardHeight === undefined) {
+        ctx.ui.notify(
+          `Board height must be auto or an integer from ${MIN_BOARD_HEIGHT} to ${MAX_BOARD_HEIGHT}`,
+          "warning",
+        );
+        continue;
+      }
+      applyLayoutSettings(
+        state,
+        { ...state.pendingLayout, boardHeight },
+        ctx,
+        `Kanban board height saved: ${boardHeight === "auto" ? "Auto" : `${boardHeight} rows`}`,
+        saveLayout,
+      );
+      continue;
+    }
+
+    if (choice === cardOption) {
+      const value = await ctx.ui.input(
+        `Card rows · ${state.pendingLayout.cardRows}`,
+        `${MIN_CARD_ROWS}-${MAX_CARD_ROWS} rows including the title`,
+      );
+      if (value === undefined) continue;
+      const parsed = Number(value.trim());
+      if (!Number.isInteger(parsed) || parsed < MIN_CARD_ROWS || parsed > MAX_CARD_ROWS) {
+        ctx.ui.notify(
+          `Card rows must be an integer from ${MIN_CARD_ROWS} to ${MAX_CARD_ROWS}`,
+          "warning",
+        );
+        continue;
+      }
+      applyLayoutSettings(
+        state,
+        { ...state.pendingLayout, cardRows: parsed },
+        ctx,
+        `Kanban card rows saved: ${parsed}`,
+        saveLayout,
+      );
+      continue;
+    }
+
+    if (choice === resetOption) {
+      applyLayoutSettings(
+        state,
+        defaultKanbanLayout(),
+        ctx,
+        "Kanban display defaults saved",
+        saveLayout,
+      );
+    }
+  }
+}
+
+export async function runPanel(
   store: BoardStore,
   state: PanelState,
   ctx: ExtensionCommandContext,
 ): Promise<void> {
   for (;;) {
-    const action = await ctx.ui.custom<PanelAction>((tui, theme, _keybindings, done) => {
-      const panel = new KanbanPanel(store, state, tui, theme, done);
-      return {
-        render: (width: number) => panel.render(width),
-        invalidate: () => panel.invalidate(),
-        handleInput: (data: string) => {
-          panel.handleInput(data);
-          tui.requestRender();
+    const action = await ctx.ui.custom<PanelAction>(
+      (tui, theme, _keybindings, done) => {
+        const panel = new KanbanPanel(store, state, tui, theme, done);
+        return {
+          render: (width: number) => panel.render(width),
+          invalidate: () => panel.invalidate(),
+          handleInput: (data: string) => {
+            panel.handleInput(data);
+            tui.requestRender();
+          },
+        };
+      },
+      {
+        overlay: true,
+        overlayOptions: {
+          // Display settings are changed outside this component and only apply on the
+          // next /kanban open, so this overlay is never resized by the settings menu.
+          anchor: "top-center",
+          margin: { bottom: KANBAN_BOTTOM_RESERVED_ROWS },
+          width: "100%",
         },
-      };
-    });
+      },
+    );
 
     if (action.type === "close") return;
+
+    if (action.type === "settings") {
+      await runDisplaySettings(state, ctx);
+      continue;
+    }
 
     if (action.type === "search") {
       const query = await ctx.ui.input("Search cards", action.query || "Title or card text");
@@ -394,7 +539,7 @@ export default function piKanban(pi: ExtensionAPI): void {
         }
 
         const store = new BoardStore(boardPath);
-        await runPanel(store, createPanelState(), ctx);
+        await runPanel(store, createPanelState(loadKanbanLayout()), ctx);
       } catch (error) {
         ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
       }

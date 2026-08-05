@@ -75,6 +75,17 @@ describe("KanbanPanel", () => {
     expect(lines.at(-1)).toContain("open full keyboard help");
   });
 
+  it("degrades below the six-row minimum without exceeding terminal space", () => {
+    const store = fixtureStore();
+    const panel = new KanbanPanel(store, createPanelState(), fakeTui(7), theme, () => undefined);
+
+    const lines = panel.render(80);
+
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toContain("PI KANBAN");
+    expect(lines.at(-1)).toContain("q close");
+  });
+
   it("uses complete action labels in the footer instead of compressed key groups", () => {
     const store = fixtureStore();
     const panel = new KanbanPanel(store, createPanelState(), fakeTui(40), theme, () => undefined);
@@ -85,6 +96,9 @@ describe("KanbanPanel", () => {
     expect(footer).toContain("e edit card");
     expect(footer).toContain("d delete card");
     expect(footer).toContain("c manage column");
+    expect(footer).toContain("s settings (applies next time /kanban opens)");
+    expect(footer).not.toContain("-/+");
+    expect(footer).not.toContain("</>");
     expect(footer).toContain("? open keyboard help");
     expect(footer).not.toContain("a/e/d");
   });
@@ -103,6 +117,37 @@ describe("KanbanPanel", () => {
     expect(secondCardRow).toBe(previewRow + 1);
     expect(lines.join("\n")).not.toContain("More details");
     expect(lines.join("\n")).not.toContain("Third detail");
+  });
+
+  it("uses the configured card row count and fixed board height", () => {
+    const store = fixtureStore();
+    const state = createPanelState({ boardHeight: 20, cardRows: 4 });
+    const panel = new KanbanPanel(store, state, fakeTui(40), theme, () => undefined);
+
+    const lines = panel.render(50);
+    const titleRow = lines.findIndex((line) => line.includes("A very long first"));
+    const secondCardRow = lines.findIndex((line) => line.includes("Second"));
+
+    expect(lines).toHaveLength(20);
+    expect(lines[titleRow + 1]).toContain("Details");
+    expect(lines[titleRow + 2]).toContain("More details");
+    expect(lines[titleRow + 3]).toContain("Third detail");
+    expect(secondCardRow).toBe(titleRow + 4);
+  });
+
+  it("does not bind direct keys to display changes", () => {
+    const store = fixtureStore();
+    const state = createPanelState({ boardHeight: 20, cardRows: 2 });
+    const panel = new KanbanPanel(store, state, fakeTui(40), theme, () => undefined);
+    const before = panel.render(50);
+
+    for (const key of ["-", "_", "+", "=", "<", ">"] as const) {
+      panel.handleInput(key);
+    }
+
+    expect(panel.render(50)).toEqual(before);
+    expect(state.layout).toEqual({ boardHeight: 20, cardRows: 2 });
+    expect(state.pendingLayout).toEqual({ boardHeight: 20, cardRows: 2 });
   });
 
   it("includes @ time and # labels in the second item row when space permits", () => {
@@ -268,6 +313,9 @@ describe("KanbanPanel", () => {
 
     panel.handleInput("#");
     expect(actions[3]).toEqual({ type: "label", cardId: cardsIn(store.document.columns[0]!)[0]!.id });
+
+    panel.handleInput("s");
+    expect(actions[4]).toEqual({ type: "settings" });
 
     const closing = new KanbanPanel(store, createPanelState(), fakeTui(), theme, (action) => actions.push(action));
     closing.handleInput("q");
