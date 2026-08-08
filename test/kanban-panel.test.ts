@@ -309,6 +309,49 @@ describe("KanbanPanel", () => {
     expect(panel.render(80).join("\n")).toContain("Copied card to clipboard");
   });
 
+  it("copies the selected card from the board without time or labels", async () => {
+    const store = fixtureStore();
+    const card = cardsIn(store.document.columns[0]!)[0]!;
+    store.mutate((document) => {
+      setCardTime(document, card.id, "2026-08-04 09:30");
+      addCardLabel(document, card.id, "urgent");
+    });
+    const state = createPanelState();
+    let copied = "";
+    let renders = 0;
+    const tui = {
+      terminal: { rows: 24 },
+      requestRender: () => {
+        renders += 1;
+      },
+    } as unknown as TUI;
+    const panel = new KanbanPanel(
+      store,
+      state,
+      tui,
+      theme,
+      () => undefined,
+      async (text) => {
+        copied = text;
+      },
+    );
+
+    panel.handleInput("y");
+    await Promise.resolve();
+
+    expect(state.view).toBe("board");
+    expect(copied).toBe([
+      "A very long first card title for narrow terminals",
+      "Details",
+      "More details",
+      "Third detail",
+    ].join("\n"));
+    expect(copied).not.toContain("2026-08-04 09:30");
+    expect(copied).not.toContain("urgent");
+    expect(renders).toBe(1);
+    expect(panel.render(80).join("\n")).toContain("Copied card to clipboard");
+  });
+
   it("restores the card detail after a label or time dialog is cancelled", () => {
     const store = fixtureStore();
     const state = createPanelState();
