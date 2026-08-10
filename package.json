@@ -1,6 +1,6 @@
 {
   "name": "pi-kanban0",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A zero-service, local-first Kanban board and agent tool for Pi",
   "type": "module",
   "license": "MIT",
