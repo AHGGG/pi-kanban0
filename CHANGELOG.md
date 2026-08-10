@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.1 (2026-08-10)
+
+## What's Changed
+* Keep Kanban list reads non-destructive by @AHGGG in https://github.com/AHGGG/pi-kanban0/pull/15
+
+
+**Full Changelog**: https://github.com/AHGGG/pi-kanban0/compare/v0.3.0...v0.3.1
+
 ## 0.3.0 (2026-08-10)
 
 ## What's Changed
