@@ -73,15 +73,23 @@ export function ensureScopedBoard(
   return { ...location, scope };
 }
 
+export function findScopedBoard(
+  scope: BoardScope,
+  cwd: string,
+  agentDir = getAgentDir(),
+): ScopedBoardLocation | undefined {
+  const path = scope === "project" ? projectBoardPath(cwd) : globalBoardPath(agentDir);
+  return existsSync(path) ? { path, created: false, scope } : undefined;
+}
+
 export function findExistingBoard(
   cwd: string,
   agentDir = getAgentDir(),
 ): ScopedBoardLocation | undefined {
-  const projectPath = projectBoardPath(cwd);
-  if (existsSync(projectPath)) return { path: projectPath, created: false, scope: "project" };
-  const globalPath = globalBoardPath(agentDir);
-  if (existsSync(globalPath)) return { path: globalPath, created: false, scope: "global" };
-  return undefined;
+  return (
+    findScopedBoard("project", cwd, agentDir)
+    ?? findScopedBoard("global", cwd, agentDir)
+  );
 }
 
 /**

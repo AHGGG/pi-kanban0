@@ -1,18 +1,30 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { cardsIn } from "../src/board-model.js";
 import { BoardStore } from "../src/board-store.js";
-import { runKanbanAction } from "../src/kanban-tool.js";
+import {
+  resolveKanbanBoardLocation,
+  runKanbanAction,
+} from "../src/kanban-tool.js";
 import { readCardMetadata } from "../src/markdown-board.js";
-import { ensureProjectBoard } from "../src/project-board.js";
+import {
+  ensureGlobalBoard,
+  ensureProjectBoard,
+  projectBoardPath,
+} from "../src/project-board.js";
 
 const createdDirectories: string[] = [];
 
-function projectStore(): BoardStore {
+function temporaryDirectory(): string {
   const cwd = mkdtempSync(join(tmpdir(), "pi-kanban0-tool-"));
   createdDirectories.push(cwd);
+  return cwd;
+}
+
+function projectStore(): BoardStore {
+  const cwd = temporaryDirectory();
   return new BoardStore(ensureProjectBoard(cwd).path);
 }
 
@@ -63,7 +75,66 @@ describe("kanban agent actions", () => {
       time: "2026-08-04 10:00",
       labels: ["release candidate"],
     });
-    expect(runKanbanAction(store, { action: "list", query: "keep it local" })).toContain("Ship keyboard board");
+    const compact = runKanbanAction(store, {
+      action: "list",
+      query: "keep it local",
+    });
+    expect(compact).toContain("Ship keyboard board");
+    expect(compact).toContain("@{2026-08-04 10:00}");
+    expect(compact).toContain("#{release candidate}");
+    expect(compact).not.toContain("Body:");
+
+    const detailed = runKanbanAction(store, {
+      action: "list",
+      column: "Todo",
+      includeDetails: true,
+    });
+    expect(detailed).toContain("@{2026-08-04 10:00}");
+    expect(detailed).toContain("#{release candidate}");
+    expect(detailed).toContain("Body:\n    Keep it local");
+    expect(detailed).not.toContain("\nInbox ");
+  });
+
+  it("resolves read-only boards without creating them and keeps auto fallback local-first", () => {
+    const cwd = temporaryDirectory();
+    const agentDir = join(cwd, "agent");
+    const projectPath = projectBoardPath(cwd);
+
+    expect(resolveKanbanBoardLocation({ action: "list", scope: "project" }, cwd, agentDir)).toBeUndefined();
+    expect(existsSync(projectPath)).toBe(false);
+
+    const global = ensureGlobalBoard(agentDir);
+    expect(resolveKanbanBoardLocation({ action: "list", scope: "auto" }, cwd, agentDir)).toEqual({
+      ...global,
+      created: false,
+      scope: "global",
+    });
+    expect(existsSync(projectPath)).toBe(false);
+
+    const project = ensureProjectBoard(cwd);
+    expect(resolveKanbanBoardLocation({ action: "list", scope: "auto" }, cwd, agentDir)).toEqual({
+      ...project,
+      created: false,
+      scope: "project",
+    });
+  });
+
+  it("creates an explicitly selected board only for a write action", () => {
+    const cwd = temporaryDirectory();
+    const agentDir = join(cwd, "agent");
+
+    const location = resolveKanbanBoardLocation(
+      { action: "add_card", scope: "project" },
+      cwd,
+      agentDir,
+    );
+
+    expect(location).toEqual({
+      path: projectBoardPath(cwd),
+      created: true,
+      scope: "project",
+    });
+    expect(existsSync(projectBoardPath(cwd))).toBe(true);
   });
 
   it("supports column management and protects destructive ambiguous actions", () => {

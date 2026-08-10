@@ -73,7 +73,7 @@ Set its time to “2026-08-04 10:00” and add the “urgent” label.
 List cards related to login on the current board.
 ```
 
-The agent and TUI use the same scope resolution: prefer the project board, then fall back to the global board. The tool also accepts `scope: project | global | auto`. If neither board exists, the agent asks which scope to create instead of choosing on the user's behalf. Completion uses an explicit `set_done` action so retries cannot accidentally toggle a card back open. If a card title or column name is ambiguous, the tool refuses to guess and asks to read the board first.
+The agent and TUI use the same `auto` scope resolution: prefer the project board, then fall back to the global board. The tool also accepts explicit `scope: project | global`; an explicit scope never falls through to the other board. A read-only `list` never creates a missing board, and if neither board exists the agent asks which scope to create before a write. List output includes card times and labels; pass a `column` plus `includeDetails: true` to retrieve complete card bodies in one bounded call. Completion uses an explicit `set_done` action so retries cannot accidentally toggle a card back open. If a card title or column name is ambiguous, the tool refuses to guess and asks to read the board first.
 
 ## TUI features
 
