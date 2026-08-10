@@ -118,6 +118,13 @@ export class KanbanPanel {
   private lastBodyRows = MIN_BODY_ROWS;
   private lastSelectedColumnWidth = MIN_COLUMN_WIDTH;
   private copyNotice?: { text: string; kind: "success" | "error" };
+  private readonly cardDisplayLineCache = new WeakMap<
+    KanbanCard,
+    {
+      signature: string;
+      lines: Array<{ text: string; kind: "title" | "body" }>;
+    }
+  >();
 
   constructor(
     private readonly store: BoardStore,
@@ -126,6 +133,7 @@ export class KanbanPanel {
     private readonly theme: Theme,
     private readonly done: (action: PanelAction) => void,
     private readonly copyText: (text: string) => Promise<void> = copyToClipboard,
+    private readonly wrapCardText: typeof wrapTextWithAnsi = wrapTextWithAnsi,
   ) {
     this.clampState();
   }
@@ -512,6 +520,10 @@ export class KanbanPanel {
   ): Array<{ text: string; kind: "title" | "body" }> {
     const maximum = Math.max(1, this.state.layout.cardRows);
     const contentWidth = Math.max(1, width - 4);
+    const signature = `${contentWidth}\u0000${maximum}\u0000${card.raw}\u0000${card.title}`;
+    const cached = this.cardDisplayLineCache.get(card);
+    if (cached?.signature === signature) return cached.lines;
+
     const title = safeText(card.title || "(untitled)");
 
     const metadata = readCardMetadata(card);
@@ -528,9 +540,9 @@ export class KanbanPanel {
     }
 
     const wrapped = [
-      ...wrapTextWithAnsi(title, contentWidth).map((text) => ({ text, kind: "title" as const })),
+      ...this.wrapCardText(title, contentWidth).map((text) => ({ text, kind: "title" as const })),
       ...bodySources.flatMap((source) =>
-        wrapTextWithAnsi(source, contentWidth).map((text) => ({ text, kind: "body" as const }))
+        this.wrapCardText(source, contentWidth).map((text) => ({ text, kind: "body" as const }))
       ),
     ];
     const visible = wrapped.slice(0, maximum);
@@ -538,6 +550,7 @@ export class KanbanPanel {
       const last = visible.at(-1);
       if (last) last.text = ellipsize(last.text, contentWidth, true);
     }
+    this.cardDisplayLineCache.set(card, { signature, lines: visible });
     return visible;
   }
 
