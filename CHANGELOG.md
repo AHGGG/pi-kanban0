@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0 (2026-08-10)
+
+## What's Changed
+* ci: use GitHub-generated release notes by @AHGGG in https://github.com/AHGGG/pi-kanban0/pull/12
+* Support quick kanban copy and card move perf optimization by @AHGGG in https://github.com/AHGGG/pi-kanban0/pull/14
+
+
+**Full Changelog**: https://github.com/AHGGG/pi-kanban0/compare/v0.2.0...v0.3.0
+
 ## [0.2.0](https://github.com/AHGGG/pi-kanban0/compare/v0.1.1...v0.2.0) (2026-08-05)
 
 
