@@ -2,8 +2,8 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { type TUI, visibleWidth } from "@earendil-works/pi-tui";
-import { afterEach, describe, expect, it } from "vitest";
+import { type TUI, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cardsIn } from "../src/board-model.js";
 import { BoardStore } from "../src/board-store.js";
 import {
@@ -309,6 +309,49 @@ describe("KanbanPanel", () => {
     expect(panel.render(80).join("\n")).toContain("Copied card to clipboard");
   });
 
+  it("copies the selected card from the board without time or labels", async () => {
+    const store = fixtureStore();
+    const card = cardsIn(store.document.columns[0]!)[0]!;
+    store.mutate((document) => {
+      setCardTime(document, card.id, "2026-08-04 09:30");
+      addCardLabel(document, card.id, "urgent");
+    });
+    const state = createPanelState();
+    let copied = "";
+    let renders = 0;
+    const tui = {
+      terminal: { rows: 24 },
+      requestRender: () => {
+        renders += 1;
+      },
+    } as unknown as TUI;
+    const panel = new KanbanPanel(
+      store,
+      state,
+      tui,
+      theme,
+      () => undefined,
+      async (text) => {
+        copied = text;
+      },
+    );
+
+    panel.handleInput("y");
+    await Promise.resolve();
+
+    expect(state.view).toBe("board");
+    expect(copied).toBe([
+      "A very long first card title for narrow terminals",
+      "Details",
+      "More details",
+      "Third detail",
+    ].join("\n"));
+    expect(copied).not.toContain("2026-08-04 09:30");
+    expect(copied).not.toContain("urgent");
+    expect(renders).toBe(1);
+    expect(panel.render(80).join("\n")).toContain("Copied card to clipboard");
+  });
+
   it("restores the card detail after a label or time dialog is cancelled", () => {
     const store = fixtureStore();
     const state = createPanelState();
@@ -345,6 +388,40 @@ describe("KanbanPanel", () => {
 
     expect(state.view).toBe("detail");
     expect(panel.render(80)[0]).toContain("CARD");
+  });
+
+  it("reuses card wrapping work when the first move redraws the board", () => {
+    const store = fixtureStore();
+    const state = createPanelState();
+    const movedCardId = cardsIn(store.document.columns[0]!)[0]!.id;
+    const wrapCardText = vi.fn(wrapTextWithAnsi);
+    const panel = new KanbanPanel(
+      store,
+      state,
+      fakeTui(40),
+      theme,
+      () => undefined,
+      async () => undefined,
+      wrapCardText,
+    );
+
+    panel.render(129);
+    const initialWrapCount = wrapCardText.mock.calls.length;
+    expect(initialWrapCount).toBeGreaterThan(0);
+
+    panel.handleInput("\x1b[1;2C");
+    panel.render(129);
+
+    expect(wrapCardText).toHaveBeenCalledTimes(initialWrapCount);
+
+    const movedCard = cardsIn(store.document.columns[1]!).find(
+      (card) => card.id === movedCardId,
+    )!;
+    store.mutate((document) => {
+      updateCardFromEditableText(document, movedCard.id, "Updated after move");
+    });
+    expect(panel.render(129).join("\n")).toContain("Updated after move");
+    expect(wrapCardText.mock.calls.length).toBeGreaterThan(initialWrapCount);
   });
 
   it("toggles and moves the selected card with single-key actions", () => {

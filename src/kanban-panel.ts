@@ -117,7 +117,14 @@ function isShiftKey(
 export class KanbanPanel {
   private lastBodyRows = MIN_BODY_ROWS;
   private lastSelectedColumnWidth = MIN_COLUMN_WIDTH;
-  private detailNotice?: { text: string; kind: "success" | "error" };
+  private copyNotice?: { text: string; kind: "success" | "error" };
+  private readonly cardDisplayLineCache = new WeakMap<
+    KanbanCard,
+    {
+      signature: string;
+      lines: Array<{ text: string; kind: "title" | "body" }>;
+    }
+  >();
 
   constructor(
     private readonly store: BoardStore,
@@ -126,6 +133,7 @@ export class KanbanPanel {
     private readonly theme: Theme,
     private readonly done: (action: PanelAction) => void,
     private readonly copyText: (text: string) => Promise<void> = copyToClipboard,
+    private readonly wrapCardText: typeof wrapTextWithAnsi = wrapTextWithAnsi,
   ) {
     this.clampState();
   }
@@ -262,9 +270,13 @@ export class KanbanPanel {
     if (matchesKey(data, Key.enter)) {
       if (this.currentCard()) {
         this.state.detailScroll = 0;
-        this.detailNotice = undefined;
+        this.copyNotice = undefined;
         this.state.view = "detail";
       }
+      return;
+    }
+    if (key === "y") {
+      this.copyCurrentCard();
       return;
     }
     if (key === "a") {
@@ -399,12 +411,15 @@ export class KanbanPanel {
       context += ` · /${safeText(this.state.searchQuery)}/ · ${visibleTotal} matches`;
     }
     if (this.state.message) context += ` · ${safeText(this.state.message)}`;
+    if (this.copyNotice) context += ` · ${safeText(this.copyNotice.text)}`;
     const contextColor =
       this.state.messageKind === "error"
         ? "error"
         : this.state.messageKind === "warning"
           ? "warning"
-          : "muted";
+          : this.copyNotice
+            ? this.copyNotice.kind === "success" ? "success" : "error"
+            : "muted";
     lines.push(truncateToWidth(this.theme.fg(contextColor, context), width));
 
     lines.push(this.joinCells(window.map((columnIndex, index) => {
@@ -432,7 +447,8 @@ export class KanbanPanel {
     const card = cards[selected];
     const filename = safeText(`${basename(dirname(this.store.path))}/${basename(this.store.path)}`);
     const heading = `${this.theme.fg("accent", this.theme.bold("▣ PI KANBAN"))}  ${this.theme.fg("text", filename)}`;
-    const context = `${this.state.selectedColumn + 1}/${document.columns.length} ${safeText(column?.title ?? "")} · ${cards.length > 0 ? `${selected + 1}/${cards.length}` : "empty"}`;
+    const copyNotice = this.copyNotice ? ` · ${safeText(this.copyNotice.text)}` : "";
+    const context = `${this.state.selectedColumn + 1}/${document.columns.length} ${safeText(column?.title ?? "")} · ${cards.length > 0 ? `${selected + 1}/${cards.length}` : "empty"}${copyNotice}`;
     const lines = [truncateToWidth(heading, width)];
     const content = [
       truncateToWidth(this.theme.fg("muted", context), width),
@@ -504,6 +520,10 @@ export class KanbanPanel {
   ): Array<{ text: string; kind: "title" | "body" }> {
     const maximum = Math.max(1, this.state.layout.cardRows);
     const contentWidth = Math.max(1, width - 4);
+    const signature = `${contentWidth}\u0000${maximum}\u0000${card.raw}\u0000${card.title}`;
+    const cached = this.cardDisplayLineCache.get(card);
+    if (cached?.signature === signature) return cached.lines;
+
     const title = safeText(card.title || "(untitled)");
 
     const metadata = readCardMetadata(card);
@@ -520,9 +540,9 @@ export class KanbanPanel {
     }
 
     const wrapped = [
-      ...wrapTextWithAnsi(title, contentWidth).map((text) => ({ text, kind: "title" as const })),
+      ...this.wrapCardText(title, contentWidth).map((text) => ({ text, kind: "title" as const })),
       ...bodySources.flatMap((source) =>
-        wrapTextWithAnsi(source, contentWidth).map((text) => ({ text, kind: "body" as const }))
+        this.wrapCardText(source, contentWidth).map((text) => ({ text, kind: "body" as const }))
       ),
     ];
     const visible = wrapped.slice(0, maximum);
@@ -530,6 +550,7 @@ export class KanbanPanel {
       const last = visible.at(-1);
       if (last) last.text = ellipsize(last.text, contentWidth, true);
     }
+    this.cardDisplayLineCache.set(card, { signature, lines: visible });
     return visible;
   }
 
@@ -569,13 +590,13 @@ export class KanbanPanel {
     if (capacity < MIN_BOARD_HEIGHT) return this.renderCompactDetail(card, width, capacity);
     const column = this.store.document.columns[this.state.selectedColumn];
     const lines: string[] = [];
-    const notice = this.detailNotice
-      ? ` · ${safeText(this.detailNotice.text)}`
+    const notice = this.copyNotice
+      ? ` · ${safeText(this.copyNotice.text)}`
       : "";
     lines.push(truncateToWidth(
       `${this.theme.fg("accent", this.theme.bold(card.checked ? "✓ CARD" : "○ CARD"))}  ${this.theme.fg("muted", safeText(column?.title ?? ""))}${
-        this.detailNotice
-          ? this.theme.fg(this.detailNotice.kind === "success" ? "success" : "error", notice)
+        this.copyNotice
+          ? this.theme.fg(this.copyNotice.kind === "success" ? "success" : "error", notice)
           : ""
       }`,
       width,
@@ -634,7 +655,7 @@ export class KanbanPanel {
       `${this.theme.fg("accent", "Change")}     Space · toggle done    Shift+←→ or [ ] · move column`,
       `           Shift+↑↓ or K/J · reorder    a · add    e · edit    d · delete`,
       `${this.theme.fg("accent", "Metadata")}   @ · set time    # · add custom label`,
-      `${this.theme.fg("accent", "Copy")}       Enter · open card details    y · copy the open card`,
+      `${this.theme.fg("accent", "Copy")}       Enter · open card details    y · copy the selected card`,
       `${this.theme.fg("accent", "Columns")}    c · add, rename, move, or delete the selected column`,
       `${this.theme.fg("accent", "Find")}       / · search all card text    Esc · clear active search`,
       `${this.theme.fg("accent", "Display")}    s · settings (applies next time /kanban opens)`,
@@ -673,7 +694,7 @@ export class KanbanPanel {
       `Navigate: ←/→ switch columns${separator}↑/↓ select cards${separator}Enter open card details`,
       `Cards: Space toggle completion${separator}a add card${separator}e edit card${separator}d delete card`,
       `Move: Shift+←/→ move card between columns${separator}Shift+↑/↓ reorder card`,
-      `Metadata: @ set card time${separator}# add custom label`,
+      `Metadata: @ set card time${separator}# add custom label${separator}y copy selected card`,
       "Display: s settings (applies next time /kanban opens)",
       `Board: c manage column${separator}/ search cards${separator}? open keyboard help${separator}q close board`,
     ];
@@ -829,13 +850,13 @@ export class KanbanPanel {
   private copyCurrentCard(): void {
     const card = this.currentCard();
     if (!card) return;
-    this.detailNotice = undefined;
+    this.copyNotice = undefined;
     void this.copyText(cardToClipboardText(card)).then(() => {
-      this.detailNotice = { text: "Copied card to clipboard", kind: "success" };
+      this.copyNotice = { text: "Copied card to clipboard", kind: "success" };
       this.tui.requestRender();
     }).catch((error: unknown) => {
       const message = error instanceof Error ? error.message : String(error);
-      this.detailNotice = { text: `Copy failed: ${message}`, kind: "error" };
+      this.copyNotice = { text: `Copy failed: ${message}`, kind: "error" };
       this.tui.requestRender();
     });
   }
