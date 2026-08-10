@@ -14,11 +14,14 @@ import {
   setCardChecked,
   setCardTime,
   updateCardFromEditableText,
+  readCardMetadata,
 } from "./markdown-board.js";
 import {
   ensureScopedBoard,
   findExistingBoard,
+  findScopedBoard,
   type BoardScope,
+  type ScopedBoardLocation,
 } from "./project-board.js";
 
 const KanbanToolParameters = Type.Object({
@@ -38,7 +41,7 @@ const KanbanToolParameters = Type.Object({
   ], { description: "Board operation to perform" }),
   card: Type.Optional(Type.String({ description: "Exact current card title" })),
   column: Type.Optional(Type.String({
-    description: "Column title; target for add_card, current column for card lookup, or column being changed",
+    description: "Column title; restricts list output, targets add_card, scopes card lookup, or selects a column to change",
   })),
   targetColumn: Type.Optional(Type.String({ description: "Destination column title for move_card" })),
   text: Type.Optional(Type.String({ description: "Card title on line 1, followed by optional Markdown body lines" })),
@@ -51,6 +54,9 @@ const KanbanToolParameters = Type.Object({
   })),
   after: Type.Optional(Type.String({ description: "Existing column after which to insert a new column" })),
   query: Type.Optional(Type.String({ description: "Case-insensitive filter across full card text for list" })),
+  includeDetails: Type.Optional(Type.Boolean({
+    description: "For list, include each visible card's complete body after its time and labels",
+  })),
   limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 200, description: "Maximum cards returned by list (default 100)" })),
   deleteCards: Type.Optional(Type.Boolean({
     description: "Must be true to delete a non-empty column and all cards in it",
@@ -89,6 +95,7 @@ export type KanbanToolParams = {
   direction?: "left" | "right";
   after?: string;
   query?: string;
+  includeDetails?: boolean;
   limit?: number;
   deleteCards?: boolean;
   scope?: "auto" | BoardScope;
@@ -149,18 +156,31 @@ function requireCard(
   throw new Error(`Card not found: ${title}${columnTitle ? ` in ${columnTitle}` : ""}`);
 }
 
+function formattedLabel(label: string): string {
+  return /\s/.test(label) ? `#{${clean(label)}}` : `#${clean(label)}`;
+}
+
+function safeBodyLine(line: string): string {
+  return line.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "");
+}
+
 export function summarizeBoard(
   document: KanbanDocument,
   query = "",
   limit = 100,
   scope: BoardScope = "project",
+  columnTitle?: string,
+  includeDetails = false,
 ): string {
   const normalized = query.trim().toLocaleLowerCase();
   const lines = [`Kanban · ${scope}`];
+  const columns = columnTitle
+    ? [requireColumn(document, columnTitle).column]
+    : document.columns;
   let shown = 0;
   let matched = 0;
 
-  for (const column of document.columns) {
+  for (const column of columns) {
     const cards = cardsIn(column);
     const visible = normalized
       ? cards.filter((card) => card.raw.toLocaleLowerCase().includes(normalized))
@@ -169,13 +189,39 @@ export function summarizeBoard(
     lines.push(`\n${clean(column.title)} (${visible.length}${normalized ? `/${cards.length}` : ""})`);
     for (const card of visible) {
       if (shown >= limit) continue;
-      lines.push(`- [${card.checked ? "x" : " "}] ${clean(card.title) || "(untitled)"}`);
+      const metadata = readCardMetadata(card);
+      const time = metadata.time ? ` · @{${clean(metadata.time)}}` : "";
+      const labels = metadata.labels.length > 0
+        ? ` · ${metadata.labels.map(formattedLabel).join(" ")}`
+        : "";
+      lines.push(`- [${card.checked ? "x" : " "}] ${clean(card.title) || "(untitled)"}${time}${labels}`);
+      if (includeDetails && metadata.bodyLines.length > 0) {
+        lines.push("  Body:");
+        for (const bodyLine of metadata.bodyLines) {
+          lines.push(`    ${safeBodyLine(bodyLine)}`);
+        }
+      }
       shown += 1;
     }
   }
 
   if (matched > shown) lines.push(`\n… ${matched - shown} more matching card(s); narrow the query or raise limit.`);
   return lines.join("\n");
+}
+
+export function resolveKanbanBoardLocation(
+  params: Pick<KanbanToolParams, "action" | "scope">,
+  cwd: string,
+  agentDir?: string,
+): ScopedBoardLocation | undefined {
+  const requestedScope = params.scope ?? "auto";
+  if (requestedScope === "auto") {
+    return findExistingBoard(cwd, agentDir);
+  }
+  if (params.action === "list") {
+    return findScopedBoard(requestedScope, cwd, agentDir);
+  }
+  return ensureScopedBoard(requestedScope, cwd, agentDir);
 }
 
 export function runKanbanAction(
@@ -187,7 +233,14 @@ export function runKanbanAction(
 
   switch (params.action) {
     case "list":
-      return summarizeBoard(document, params.query, params.limit ?? 100, scope);
+      return summarizeBoard(
+        document,
+        params.query,
+        params.limit ?? 100,
+        scope,
+        params.column,
+        params.includeDetails ?? false,
+      );
 
     case "add_card": {
       const columnTitle = required(params.column, "column");
@@ -294,7 +347,7 @@ export function registerKanbanTool(pi: ExtensionAPI): void {
   pi.registerTool({
     name: "kanban_board",
     label: "Kanban Board",
-    description: "Read or update a Pi Kanban board. Auto scope uses the current project's board first, then the global board. Specify project/global to create or explicitly target one. Use exact card and column titles.",
+    description: "Read or update a Pi Kanban board. Auto scope reads the current project's board first, then falls back to global. Read-only list never creates a board; an explicit project/global write may create its target. Use exact card and column titles.",
     promptSnippet: "Read and update the active project or global Kanban board.",
     promptGuidelines: [
       "Use kanban_board only when the user asks about or wants to change their project board.",
@@ -306,11 +359,10 @@ export function registerKanbanTool(pi: ExtensionAPI): void {
     executionMode: "sequential",
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const requestedScope = params.scope ?? "auto";
-      const location = requestedScope === "auto"
-        ? findExistingBoard(ctx.cwd)
-        : ensureScopedBoard(requestedScope, ctx.cwd);
+      const location = resolveKanbanBoardLocation(params as KanbanToolParams, ctx.cwd);
       if (!location) {
-        throw new Error("No Kanban board exists yet. Ask the user whether to create a project or global board, then retry with that scope.");
+        const target = requestedScope === "auto" ? "project or global" : requestedScope;
+        throw new Error(`No ${target} Kanban board exists. Read-only list does not create boards; ask the user before a write creates one.`);
       }
       const store = new BoardStore(location.path);
       const text = runKanbanAction(store, params as KanbanToolParams, location.scope);
